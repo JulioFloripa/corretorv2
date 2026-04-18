@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      answer_sheets: {
+        Row: {
+          generated_at: string
+          id: string
+          pdf_url: string | null
+          sheet_uuid: string
+          status: string
+          student_id: string
+          template_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          generated_at?: string
+          id?: string
+          pdf_url?: string | null
+          sheet_uuid?: string
+          status?: string
+          student_id: string
+          template_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          generated_at?: string
+          id?: string
+          pdf_url?: string | null
+          sheet_uuid?: string
+          status?: string
+          student_id?: string
+          template_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       corrections: {
         Row: {
           created_at: string | null
@@ -144,6 +180,69 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_submissions: {
+        Row: {
+          answer_sheet_id: string | null
+          correction_id: string | null
+          created_at: string
+          detected_answers: Json
+          discarded: boolean
+          id: string
+          manual_corrections: Json | null
+          qr_data: Json | null
+          read_errors: string[] | null
+          reviewed: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scan_image_path: string
+          student_id: string | null
+          success: boolean
+          template_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer_sheet_id?: string | null
+          correction_id?: string | null
+          created_at?: string
+          detected_answers?: Json
+          discarded?: boolean
+          id?: string
+          manual_corrections?: Json | null
+          qr_data?: Json | null
+          read_errors?: string[] | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scan_image_path: string
+          student_id?: string | null
+          success?: boolean
+          template_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer_sheet_id?: string | null
+          correction_id?: string | null
+          created_at?: string
+          detected_answers?: Json
+          discarded?: boolean
+          id?: string
+          manual_corrections?: Json | null
+          qr_data?: Json | null
+          read_errors?: string[] | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scan_image_path?: string
+          student_id?: string | null
+          success?: boolean
+          template_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       student_answers: {
         Row: {
           correct_answer: string
@@ -270,6 +369,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      template_students: {
+        Row: {
+          created_at: string
+          id: string
+          student_id: string
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          student_id: string
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          student_id?: string
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       templates: {
         Row: {
