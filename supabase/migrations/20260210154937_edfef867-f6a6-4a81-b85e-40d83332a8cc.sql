@@ -1,0 +1,1 @@
+ALTER TABLE public.template_questions ADD COLUMN topic text DEFAULT NULL;

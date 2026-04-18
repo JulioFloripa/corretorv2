@@ -1,0 +1,1 @@
+ALTER TABLE public.corrections ADD COLUMN essay_score numeric NULL;
