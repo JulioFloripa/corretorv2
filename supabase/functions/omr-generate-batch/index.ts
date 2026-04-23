@@ -151,21 +151,23 @@ Deno.serve(async (req) => {
     }
 
     const responseContentType = omrRes.headers.get("content-type") || "";
+    const responseBuffer = await omrRes.arrayBuffer();
+    const responseBytes = new Uint8Array(responseBuffer.slice(0, 2));
+    const isZip = responseBytes[0] === 0x50 && responseBytes[1] === 0x4b;
 
-    if (!responseContentType.toLowerCase().includes("application/json")) {
-      const zip = await omrRes.arrayBuffer();
-      return new Response(zip, {
+    if (isZip || !responseContentType.toLowerCase().includes("application/json")) {
+      return new Response(responseBuffer, {
         status: 200,
         headers: {
           ...corsHeaders,
-          "Content-Type": responseContentType || "application/zip",
+          "Content-Type": isZip ? "application/zip" : responseContentType || "application/octet-stream",
           "Content-Disposition": `attachment; filename="gabaritos-${template.id}.zip"`,
           "X-Sheet-Count": String(sheets.length),
         },
       });
     }
 
-    const result = await omrRes.json();
+    const result = JSON.parse(new TextDecoder().decode(responseBuffer));
     // Esperado: { zip_url, expires_at, sheet_count } ou ZIP binário direto
     return json({
       success: true,
