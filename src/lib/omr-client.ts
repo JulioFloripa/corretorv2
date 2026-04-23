@@ -5,6 +5,15 @@ export async function generateBatch(templateId: string, studentIds?: string[]) {
     body: { template_id: templateId, student_ids: studentIds },
   });
   if (error) throw new Error(error.message);
+  if (data instanceof Blob) {
+    return {
+      success: true,
+      zip_url: URL.createObjectURL(data),
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      sheet_count: Number(error?.context?.headers?.get?.("x-sheet-count")) || studentIds?.length || 0,
+      sheets_created: Number(error?.context?.headers?.get?.("x-sheet-count")) || studentIds?.length || 0,
+    };
+  }
   if (data?.error) throw new Error(data.error);
   return data as {
     success: boolean;
