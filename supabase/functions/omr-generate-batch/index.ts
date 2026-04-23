@@ -151,16 +151,23 @@ Deno.serve(async (req) => {
     }
 
     const responseContentType = omrRes.headers.get("content-type") || "";
+    const normalizedContentType = responseContentType.toLowerCase();
     const responseBuffer = await omrRes.arrayBuffer();
     const responseBytes = new Uint8Array(responseBuffer.slice(0, 2));
     const isZip = responseBytes[0] === 0x50 && responseBytes[1] === 0x4b;
+    const isBinaryResponse =
+      normalizedContentType.includes("application/zip") ||
+      normalizedContentType.includes("application/octet-stream") ||
+      isZip;
 
-    if (isZip || !responseContentType.toLowerCase().includes("application/json")) {
+    if (isBinaryResponse) {
       return new Response(responseBuffer, {
         status: 200,
         headers: {
           ...corsHeaders,
-          "Content-Type": isZip ? "application/zip" : responseContentType || "application/octet-stream",
+          "Content-Type": isZip || normalizedContentType.includes("application/zip")
+            ? "application/zip"
+            : "application/octet-stream",
           "Content-Disposition": `attachment; filename="gabaritos-${template.id}.zip"`,
           "X-Sheet-Count": String(sheets.length),
         },
