@@ -69,7 +69,7 @@ const OmrHub = () => {
           <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <FlemingLogo className="h-8" />
+          <FlemingLogo size="sm" showText={false} />
           <div className="flex items-center gap-2">
             <ScanLine className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-bold">Leitura Óptica de Gabaritos</h1>
