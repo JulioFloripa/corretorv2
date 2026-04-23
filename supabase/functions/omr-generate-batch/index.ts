@@ -106,26 +106,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Montar payload pro OMR API
+    // Montar payload no contrato esperado pela OMR API
     const payload = {
-      template: {
-        id: template.id,
-        name: template.name,
-        exam_type: template.exam_type,
-        total_questions: template.total_questions,
-        questions: (questions || []).map((q: any) => ({
-          question_number: q.question_number,
-          question_type: q.question_type,
-          num_propositions: q.num_propositions,
-        })),
-      },
+      template_id: template.id,
+      template_name: template.name,
+      exam_type: String(template.exam_type || "").toUpperCase(),
+      total_questions: template.total_questions,
+      alternatives: ["A", "B", "C", "D", "E"],
+      questions: (questions || []).map((q: any) => ({
+        question_number: q.question_number,
+        question_type: q.question_type,
+        num_propositions: q.num_propositions,
+      })),
       students: sheets.map((sh) => {
         const student = students.find((s: any) => s.id === sh.student_id)!;
         return {
-          student_id: student.id,
+          id: student.id,
+          student_id: student.student_id || "",
           sheet_uuid: sh.sheet_uuid,
           name: student.name,
           matricula: student.student_id || "",
+          sede: student.campus || "",
           campus: student.campus || "",
         };
       }),
