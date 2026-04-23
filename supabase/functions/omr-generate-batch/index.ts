@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
       template_id: template.id,
       template_name: template.name,
       exam_type: String(template.exam_type || "").toUpperCase(),
+      template_type: String(template.exam_type || "").toUpperCase(),
       total_questions: template.total_questions,
       alternatives: ["A", "B", "C", "D", "E"],
       questions: (questions || []).map((q: any) => ({
