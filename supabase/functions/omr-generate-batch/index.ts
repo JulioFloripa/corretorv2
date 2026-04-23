@@ -156,11 +156,11 @@ Deno.serve(async (req) => {
     const isZip = responseBytes[0] === 0x50 && responseBytes[1] === 0x4b;
 
     if (isZip || !responseContentType.toLowerCase().includes("application/json")) {
-      return new Response(zip, {
+      return new Response(responseBuffer, {
         status: 200,
         headers: {
           ...corsHeaders,
-          "Content-Type": responseContentType || "application/zip",
+          "Content-Type": isZip ? "application/zip" : responseContentType || "application/octet-stream",
           "Content-Disposition": `attachment; filename="gabaritos-${template.id}.zip"`,
           "X-Sheet-Count": String(sheets.length),
         },
