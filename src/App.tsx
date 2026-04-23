@@ -17,6 +17,12 @@ import Disciplines from "./pages/Disciplines";
 import StudentEdit from "./pages/StudentEdit";
 import StudentPerformance from "./pages/StudentPerformance";
 import Students from "./pages/Students";
+import OmrHub from "./pages/OmrHub";
+import OmrEnroll from "./pages/OmrEnroll";
+import OmrGenerate from "./pages/OmrGenerate";
+import OmrUpload from "./pages/OmrUpload";
+import OmrReview from "./pages/OmrReview";
+import OmrDone from "./pages/OmrDone";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +48,12 @@ const App = () => (
           <Route path="/students/edit" element={<StudentEdit />} />
           <Route path="/students/performance" element={<StudentPerformance />} />
           <Route path="/students" element={<Students />} />
+          <Route path="/omr" element={<OmrHub />} />
+          <Route path="/omr/enroll/:templateId" element={<OmrEnroll />} />
+          <Route path="/omr/generate/:templateId" element={<OmrGenerate />} />
+          <Route path="/omr/upload/:templateId" element={<OmrUpload />} />
+          <Route path="/omr/review/:templateId" element={<OmrReview />} />
+          <Route path="/omr/done/:templateId" element={<OmrDone />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
