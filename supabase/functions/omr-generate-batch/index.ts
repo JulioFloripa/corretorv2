@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
           "Content-Type": isZip || normalizedContentType.includes("application/zip")
             ? "application/zip"
             : "application/octet-stream",
-          "Content-Disposition": `attachment; filename="gabaritos-${template.id}.zip"`,
+          "Content-Disposition": `attachment; filename="gabaritos.zip"`,
           "X-Sheet-Count": String(sheets.length),
         },
       });
