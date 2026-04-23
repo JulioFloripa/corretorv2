@@ -329,7 +329,7 @@ const OmrReview = () => {
           <div className="border-b p-3 flex items-center gap-2 flex-shrink-0 flex-wrap">
             <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" />{counts.ok} ok</Badge>
             {counts.empty > 0 && (
-              <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-900 hover:bg-amber-100">
+              <Badge variant="outline" className="gap-1 border-warning text-warning">
                 <AlertTriangle className="h-3 w-3" />{counts.empty} vazias
               </Badge>
             )}
@@ -355,14 +355,14 @@ const OmrReview = () => {
                     onClick={() => openEdit(q)}
                     className={`text-left border rounded-md p-2 hover:border-primary transition-colors ${
                       status === "error" ? "border-destructive bg-destructive/5" :
-                      status === "empty" ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20" :
+                      status === "empty" ? "border-warning bg-warning/10" :
                       "border-border"
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="font-semibold">Q{String(q.question_number).padStart(2, "0")}</span>
                       {status === "ok" && <CheckCircle2 className="h-3 w-3 text-primary" />}
-                      {status === "empty" && <AlertTriangle className="h-3 w-3 text-amber-600" />}
+                      {status === "empty" && <AlertTriangle className="h-3 w-3 text-warning" />}
                       {status === "error" && <X className="h-3 w-3 text-destructive" />}
                     </div>
                     <div className="font-mono text-sm font-bold truncate">
