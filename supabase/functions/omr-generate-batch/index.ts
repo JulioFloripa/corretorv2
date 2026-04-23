@@ -4,6 +4,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Expose-Headers": "content-disposition, content-type, x-sheet-count",
 };
 
 interface GenerateBody {
@@ -149,8 +150,23 @@ Deno.serve(async (req) => {
       return json({ error: `OMR API retornou ${omrRes.status}: ${errText}` }, 502);
     }
 
+    const responseContentType = omrRes.headers.get("content-type") || "";
+
+    if (!responseContentType.toLowerCase().includes("application/json")) {
+      const zip = await omrRes.arrayBuffer();
+      return new Response(zip, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": responseContentType || "application/zip",
+          "Content-Disposition": `attachment; filename="gabaritos-${template.id}.zip"`,
+          "X-Sheet-Count": String(sheets.length),
+        },
+      });
+    }
+
     const result = await omrRes.json();
-    // Esperado: { zip_url, expires_at, sheet_count }
+    // Esperado: { zip_url, expires_at, sheet_count } ou ZIP binário direto
     return json({
       success: true,
       zip_url: result.zip_url,
