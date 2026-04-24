@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       scans: signedScans.map((s) => ({ scan_id: s.scan_id, image_url: s.image_url })),
     };
 
-    const omrRes = await fetch(`${OMR_API_URL}/scan-batch`, {
+    const omrRes = await fetch(`${OMR_API_URL}/scan-batch-url`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
