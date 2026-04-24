@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Users, FileText, Upload, ClipboardCheck, ScanLine } from "lucide-react";
+import { ArrowLeft, Users, FileText, Upload, ClipboardCheck, ScanLine, Pencil } from "lucide-react";
 import FlemingLogo from "@/components/FlemingLogo";
 
 interface Template {
@@ -102,7 +102,24 @@ const OmrHub = () => {
         </Card>
 
         {selectedId && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <Card
+              className="cursor-pointer hover:border-primary transition-colors border-dashed"
+              onClick={() => navigate(`/templates/${selectedId}`)}
+            >
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Pencil className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base">Editar Gabarito desta Prova</CardTitle>
+                    <CardDescription>Ajuste respostas, disciplinas, pontos e tipos de questão</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {cards.map((c) => {
               const Icon = c.icon;
               return (
@@ -131,6 +148,7 @@ const OmrHub = () => {
                 </Card>
               );
             })}
+            </div>
           </div>
         )}
       </main>
