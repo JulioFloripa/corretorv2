@@ -2,8 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface ScanBody {
@@ -28,9 +27,7 @@ Deno.serve(async (req) => {
     if (!authHeader) return json({ error: "Não autenticado" }, 401);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: userData, error: userErr } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    const { data: userData, error: userErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (userErr || !userData.user) return json({ error: "Sessão inválida" }, 401);
     const userId = userData.user.id;
 
@@ -56,9 +53,7 @@ Deno.serve(async (req) => {
     // Baixar bytes das imagens do Storage pra enviar como multipart
     const scanFiles: Array<{ scan_id: string; filename: string; blob: Blob; path: string }> = [];
     for (const path of body.scan_paths) {
-      const { data: blob, error: dlErr } = await supabase.storage
-        .from("omr-scans")
-        .download(path);
+      const { data: blob, error: dlErr } = await supabase.storage.from("omr-scans").download(path);
       if (dlErr || !blob) {
         console.error("Erro ao baixar imagem:", path, dlErr);
         continue;
@@ -81,17 +76,20 @@ Deno.serve(async (req) => {
     for (const s of scanFiles) {
       formData.append("files", s.blob, s.filename);
     }
-    formData.append("config", JSON.stringify({
-      template: {
-        id: template.id,
-        questions: (questions || []).map((q: any) => ({
-          question_number: q.question_number,
-          question_type: q.question_type,
-          num_propositions: q.num_propositions,
-        })),
-      },
-      scans: scanFiles.map((s) => ({ scan_id: s.scan_id, filename: s.filename })),
-    }));
+    formData.append(
+      "config",
+      JSON.stringify({
+        template: {
+          id: template.id,
+          questions: (questions || []).map((q: any) => ({
+            question_number: q.question_number,
+            question_type: q.question_type,
+            num_propositions: q.num_propositions,
+          })),
+        },
+        scans: scanFiles.map((s) => ({ scan_id: s.scan_id, filename: s.filename })),
+      }),
+    );
 
     // Chamar OMR API - endpoint /scan-batch (multipart)
     // NÃO setar Content-Type manualmente - fetch monta com boundary correto
@@ -159,16 +157,19 @@ Deno.serve(async (req) => {
       return json({ error: insErr.message }, 500);
     }
 
-    return json({
-      success: true,
-      processed: submissionsToInsert.length,
-      submission_ids: (inserted || []).map((r: any) => r.id),
-      summary: {
-        total: apiResults.length,
-        ok: apiResults.filter((r: any) => r.success !== false).length,
-        failed: apiResults.filter((r: any) => r.success === false).length,
+    return json(
+      {
+        success: true,
+        processed: submissionsToInsert.length,
+        submission_ids: (inserted || []).map((r: any) => r.id),
+        summary: {
+          total: apiResults.length,
+          ok: apiResults.filter((r: any) => r.success !== false).length,
+          failed: apiResults.filter((r: any) => r.success === false).length,
+        },
       },
-    }, 200);
+      200,
+    );
   } catch (err: any) {
     console.error("Erro inesperado:", err);
     return json({ error: err.message || "Erro interno" }, 500);
