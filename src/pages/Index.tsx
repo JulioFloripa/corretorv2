@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 const Index = () => {
   const navigate = useNavigate();
 
-  
   const actionCards = [
     {
       title: "Corrigir Prova",
@@ -61,12 +60,10 @@ const Index = () => {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-12">
         <div className="text-center max-w-3xl mx-auto mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-            Correção Inteligente de Provas
-          </h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Correção Inteligente de Provas</h2>
           <p className="text-lg text-muted-foreground">
-            Corrija provas de ENEM, UFSC, ACAFE e provas internas com precisão e rapidez.
-            Gere relatórios detalhados e imprima boletins personalizados.
+            Corrija provas de ENEM, UFSC, ACAFE e provas internas com precisão e rapidez. Gere relatórios detalhados e
+            imprima boletins personalizados.
           </p>
         </div>
 
@@ -87,11 +84,7 @@ const Index = () => {
                   <CardDescription>{card.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button
-                    variant={card.variant}
-                    className="w-full"
-                    onClick={() => console.log(card.action)}
-                  >
+                  <Button variant={card.variant} className="w-full" onClick={() => console.log(card.action)}>
                     Acessar
                   </Button>
                 </CardContent>
@@ -102,36 +95,28 @@ const Index = () => {
 
         {/* Features Grid */}
         <div className="mt-16 max-w-5xl mx-auto">
-          <h3 className="text-2xl font-bold text-center mb-8 text-foreground">
-            Funcionalidades Principais
-          </h3>
+          <h3 className="text-2xl font-bold text-center mb-8 text-foreground">Funcionalidades Principais</h3>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <FileSpreadsheet className="w-8 h-8 text-primary" />
               </div>
               <h4 className="font-semibold mb-2 text-foreground">Upload de Planilhas</h4>
-              <p className="text-sm text-muted-foreground">
-                Importe respostas de centenas de alunos em segundos
-              </p>
+              <p className="text-sm text-muted-foreground">Importe respostas de centenas de alunos em segundos</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <ClipboardEdit className="w-8 h-8 text-primary" />
               </div>
               <h4 className="font-semibold mb-2 text-foreground">Correção Automática</h4>
-              <p className="text-sm text-muted-foreground">
-                Questões objetivas, somatório UFSC e abertas numéricas
-              </p>
+              <p className="text-sm text-muted-foreground">Questões objetivas, somatório UFSC e abertas numéricas</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <TrendingUp className="w-8 h-8 text-primary" />
               </div>
               <h4 className="font-semibold mb-2 text-foreground">Relatórios Detalhados</h4>
-              <p className="text-sm text-muted-foreground">
-                Análises por aluno, questão, turma e competências
-              </p>
+              <p className="text-sm text-muted-foreground">Análises por aluno, questão, turma e competências</p>
             </div>
           </div>
         </div>
