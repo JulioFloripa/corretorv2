@@ -53,29 +53,35 @@ Deno.serve(async (req) => {
       .eq("template_id", body.template_id)
       .order("question_number");
 
-    // Gerar URLs assinadas (1h) pra cada scan
-    const signedScans: Array<{ scan_id: string; image_url: string; path: string }> = [];
+    // Baixar bytes das imagens do Storage pra enviar como multipart
+    const scanFiles: Array<{ scan_id: string; filename: string; blob: Blob; path: string }> = [];
     for (const path of body.scan_paths) {
-      const { data: signed, error: signErr } = await supabase.storage
+      const { data: blob, error: dlErr } = await supabase.storage
         .from("omr-scans")
-        .createSignedUrl(path, 3600);
-      if (signErr || !signed) {
-        console.error("Erro ao assinar URL:", path, signErr);
+        .download(path);
+      if (dlErr || !blob) {
+        console.error("Erro ao baixar imagem:", path, dlErr);
         continue;
       }
-      signedScans.push({
+      const filename = path.split("/").pop() || `scan_${crypto.randomUUID()}.jpg`;
+      scanFiles.push({
         scan_id: crypto.randomUUID(),
-        image_url: signed.signedUrl,
+        filename,
+        blob,
         path,
       });
     }
 
-    if (signedScans.length === 0) {
-      return json({ error: "Não foi possível assinar nenhuma imagem" }, 500);
+    if (scanFiles.length === 0) {
+      return json({ error: "Não foi possível baixar nenhuma imagem" }, 500);
     }
 
-    // Chamar OMR API
-    const omrPayload = {
+    // Montar multipart/form-data: files[] + config (JSON)
+    const formData = new FormData();
+    for (const s of scanFiles) {
+      formData.append("files", s.blob, s.filename);
+    }
+    formData.append("config", JSON.stringify({
       template: {
         id: template.id,
         questions: (questions || []).map((q: any) => ({
@@ -84,16 +90,17 @@ Deno.serve(async (req) => {
           num_propositions: q.num_propositions,
         })),
       },
-      scans: signedScans.map((s) => ({ scan_id: s.scan_id, image_url: s.image_url })),
-    };
+      scans: scanFiles.map((s) => ({ scan_id: s.scan_id, filename: s.filename })),
+    }));
 
-    const omrRes = await fetch(`${OMR_API_URL}/scan-batch-url`, {
+    // Chamar OMR API - endpoint /scan-batch (multipart)
+    // NÃO setar Content-Type manualmente - fetch monta com boundary correto
+    const omrRes = await fetch(`${OMR_API_URL}/scan-batch`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "X-Fleming-Token": OMR_API_TOKEN,
       },
-      body: JSON.stringify(omrPayload),
+      body: formData,
     });
 
     if (!omrRes.ok) {
@@ -106,10 +113,12 @@ Deno.serve(async (req) => {
     const apiResults: any[] = result.results || [];
 
     // Mapear resultados de volta pros paths e gravar scan_submissions
-    const scanIdToPath = new Map(signedScans.map((s) => [s.scan_id, s.path]));
+    // A API pode retornar scan_id (preservado do config) ou filename - aceita ambos
+    const scanIdToPath = new Map(scanFiles.map((s) => [s.scan_id, s.path]));
+    const filenameToPath = new Map(scanFiles.map((s) => [s.filename, s.path]));
     const submissionsToInsert: any[] = [];
     for (const r of apiResults) {
-      const path = scanIdToPath.get(r.scan_id);
+      const path = scanIdToPath.get(r.scan_id) || filenameToPath.get(r.filename);
       if (!path) continue;
 
       // Tentar resolver student_id e answer_sheet_id via QR
