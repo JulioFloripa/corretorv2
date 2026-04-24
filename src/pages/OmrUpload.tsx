@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, Upload, FileImage, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Upload, FileImage, X, Loader2, CheckCircle2, AlertCircle, Pencil } from "lucide-react";
 import { uploadScansToBucket, scanBatch } from "@/lib/omr-client";
 
 const ACCEPTED = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -72,10 +72,13 @@ const OmrUpload = () => {
           <Button variant="ghost" size="sm" onClick={() => navigate("/omr")}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold">Enviar Scans</h1>
             <p className="text-sm text-muted-foreground">{templateName}</p>
           </div>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/templates/${templateId}`)}>
+            <Pencil className="h-4 w-4 mr-1" /> Editar gabarito
+          </Button>
         </div>
       </header>
 

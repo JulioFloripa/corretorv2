@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Check, X, Loader2, AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Check, X, Loader2, AlertCircle, CheckCircle2, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { getScanSignedUrl } from "@/lib/omr-client";
 
 interface Submission {
@@ -59,6 +60,8 @@ const OmrReview = () => {
   const [loading, setLoading] = useState(true);
   const [linkStudentDialog, setLinkStudentDialog] = useState(false);
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
+  const [orphanDialog, setOrphanDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -222,6 +225,11 @@ const OmrReview = () => {
 
   const discard = async () => {
     if (!current) return;
+    // Se está sem aluno vinculado, abre fluxo de "órfão": vincular ou excluir definitivamente
+    if (!current.student_id) {
+      setOrphanDialog(true);
+      return;
+    }
     if (!confirm("Descartar este scan? O aluno precisará refazer a folha ou ter as respostas inseridas manualmente.")) return;
     const { error } = await supabase
       .from("scan_submissions")
@@ -233,6 +241,27 @@ const OmrReview = () => {
     }
     setSubmissions((prev) => prev.filter((_, i) => i !== idx));
     if (idx >= submissions.length - 1) navigate(`/omr/done/${templateId}`);
+  };
+
+  const deleteOrphan = async () => {
+    if (!current) return;
+    setDeleting(true);
+    try {
+      // remove o arquivo do storage (best-effort)
+      if (current.scan_image_path) {
+        await supabase.storage.from("omr-scans").remove([current.scan_image_path]);
+      }
+      const { error } = await supabase.from("scan_submissions").delete().eq("id", current.id);
+      if (error) throw error;
+      setSubmissions((prev) => prev.filter((_, i) => i !== idx));
+      setOrphanDialog(false);
+      toast({ title: "Scan excluído", description: "Removido permanentemente do banco de dados." });
+      if (idx >= submissions.length - 1) navigate(`/omr/done/${templateId}`);
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -276,6 +305,9 @@ const OmrReview = () => {
               )}
             </div>
           </div>
+          <Button size="sm" variant="outline" onClick={() => navigate(`/templates/${templateId}`)}>
+            <Pencil className="h-4 w-4 mr-1" /> Editar gabarito
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setLinkStudentDialog(true)}>
             {currentStudent ? "Trocar aluno" : "Vincular aluno"}
           </Button>
@@ -479,6 +511,50 @@ const OmrReview = () => {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL ÓRFÃO — scan sem aluno vinculado */}
+      <AlertDialog open={orphanDialog} onOpenChange={setOrphanDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Scan sem aluno vinculado
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Este gabarito não tem aluno vinculado e não será contabilizado em nenhum boletim.
+              Você pode <strong>vincular um aluno agora</strong> ou <strong>excluí-lo permanentemente</strong> para
+              não acumular registros sem dono no banco de dados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deleting}>Voltar</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOrphanDialog(false);
+                setLinkStudentDialog(true);
+              }}
+              disabled={deleting}
+            >
+              Vincular aluno
+            </Button>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                deleteOrphan();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Excluindo...</>
+              ) : (
+                <><Trash2 className="h-4 w-4 mr-1" /> Excluir definitivamente</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

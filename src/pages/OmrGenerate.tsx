@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, FileText, Download, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, FileText, Download, Loader2, AlertCircle, CheckCircle2, Pencil } from "lucide-react";
 import { generateBatch } from "@/lib/omr-client";
 
 const OmrGenerate = () => {
@@ -60,10 +60,13 @@ const OmrGenerate = () => {
           <Button variant="ghost" size="sm" onClick={() => navigate("/omr")}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold">Gerar Gabaritos</h1>
             <p className="text-sm text-muted-foreground">{templateName}</p>
           </div>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/templates/${templateId}`)}>
+            <Pencil className="h-4 w-4 mr-1" /> Editar gabarito
+          </Button>
         </div>
       </header>
 
