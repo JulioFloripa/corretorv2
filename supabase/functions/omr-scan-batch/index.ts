@@ -27,7 +27,9 @@ Deno.serve(async (req) => {
     if (!authHeader) return json({ error: "Não autenticado" }, 401);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: userData, error: userErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+    const { data: userData, error: userErr } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
     if (userErr || !userData.user) return json({ error: "Sessão inválida" }, 401);
     const userId = userData.user.id;
 
@@ -36,7 +38,7 @@ Deno.serve(async (req) => {
       return json({ error: "template_id e scan_paths são obrigatórios" }, 400);
     }
 
-    // Carregar template + questões pra mandar ao OMR
+    // Carregar template + número de questões para construir o config esperado pela API OMR
     const { data: template } = await supabase
       .from("templates")
       .select("id, exam_type")
@@ -46,14 +48,18 @@ Deno.serve(async (req) => {
 
     const { data: questions } = await supabase
       .from("template_questions")
-      .select("question_number, question_type, num_propositions")
-      .eq("template_id", body.template_id)
-      .order("question_number");
+      .select("question_number")
+      .eq("template_id", body.template_id);
 
-    // Baixar bytes das imagens do Storage pra enviar como multipart
+    const totalQuestions = (questions && questions.length > 0) ? questions.length : 63;
+    const alternatives = ["A", "B", "C", "D"];
+
+    // Baixar bytes das imagens do Storage para enviar como multipart
     const scanFiles: Array<{ scan_id: string; filename: string; blob: Blob; path: string }> = [];
     for (const path of body.scan_paths) {
-      const { data: blob, error: dlErr } = await supabase.storage.from("omr-scans").download(path);
+      const { data: blob, error: dlErr } = await supabase.storage
+        .from("omr-scans")
+        .download(path);
       if (dlErr || !blob) {
         console.error("Erro ao baixar imagem:", path, dlErr);
         continue;
@@ -71,27 +77,21 @@ Deno.serve(async (req) => {
       return json({ error: "Não foi possível baixar nenhuma imagem" }, 500);
     }
 
-    // Montar multipart/form-data: files[] + config (JSON)
+    // Montar multipart/form-data: files[] + config (JSON no formato que a API OMR espera)
+    // Schema confirmado via teste com curl: { total_questions, alternatives, scans }
+    // O template_id real é lido do QR Code pela própria API, não precisa enviar.
     const formData = new FormData();
     for (const s of scanFiles) {
       formData.append("files", s.blob, s.filename);
     }
-    formData.append(
-      "config",
-      JSON.stringify({
-        template: {
-          id: template.id,
-          questions: (questions || []).map((q: any) => ({
-            question_number: q.question_number,
-            question_type: q.question_type,
-            num_propositions: q.num_propositions,
-          })),
-        },
-        scans: scanFiles.map((s) => ({ scan_id: s.scan_id, filename: s.filename })),
-      }),
-    );
+    const apiConfig = {
+      total_questions: totalQuestions,
+      alternatives: alternatives,
+      scans: scanFiles.map((s) => ({ scan_id: s.scan_id, filename: s.filename })),
+    };
+    formData.append("config", JSON.stringify(apiConfig));
 
-    // Chamar OMR API - endpoint /scan-batch (multipart)
+    // POST para a API OMR (endpoint /scan-batch, multipart)
     // NÃO setar Content-Type manualmente - fetch monta com boundary correto
     const omrRes = await fetch(`${OMR_API_URL}/scan-batch`, {
       method: "POST",
@@ -111,26 +111,36 @@ Deno.serve(async (req) => {
     const apiResults: any[] = result.results || [];
 
     // Mapear resultados de volta pros paths e gravar scan_submissions
-    // A API pode retornar scan_id (preservado do config) ou filename - aceita ambos
-    const scanIdToPath = new Map(scanFiles.map((s) => [s.scan_id, s.path]));
-    const filenameToPath = new Map(scanFiles.map((s) => [s.filename, s.path]));
+    // A API retorna filename (e talvez scan_id); usamos filename como chave principal.
+    const filenameToScan = new Map(scanFiles.map((s) => [s.filename, s]));
     const submissionsToInsert: any[] = [];
     for (const r of apiResults) {
-      const path = scanIdToPath.get(r.scan_id) || filenameToPath.get(r.filename);
-      if (!path) continue;
+      const matched = filenameToScan.get(r.filename) ||
+        scanFiles.find((s) => s.scan_id === r.scan_id);
+      if (!matched) continue;
 
-      // Tentar resolver student_id e answer_sheet_id via QR
+      // Resolver student_id e answer_sheet_id via QR (se a API retornou template_id/student_id, usamos)
       let studentDbId: string | null = null;
       let sheetDbId: string | null = null;
-      if (r.qr_data?.sheet_uuid) {
+      const sheetUuid = r.qr_data?.sheet_uuid || r.sheet_uuid || null;
+      if (sheetUuid) {
         const { data: sheet } = await supabase
           .from("answer_sheets")
           .select("id, student_id")
-          .eq("sheet_uuid", r.qr_data.sheet_uuid)
+          .eq("sheet_uuid", sheetUuid)
           .maybeSingle();
         if (sheet) {
           sheetDbId = sheet.id;
           studentDbId = sheet.student_id;
+        }
+      }
+
+      // Normalizar respostas: API retorna array [{question_number, answer}]; gravamos como objeto {q1: "A", q2: "B", ...}
+      const detected: Record<string, string> = {};
+      const answersArr = Array.isArray(r.answers) ? r.answers : [];
+      for (const a of answersArr) {
+        if (a && a.question_number != null && a.answer != null) {
+          detected[`q${a.question_number}`] = a.answer;
         }
       }
 
@@ -139,12 +149,16 @@ Deno.serve(async (req) => {
         template_id: template.id,
         student_id: studentDbId,
         answer_sheet_id: sheetDbId,
-        scan_image_path: path,
-        qr_data: r.qr_data || null,
-        detected_answers: r.detected_answers || {},
-        read_errors: r.read_errors || [],
+        scan_image_path: matched.path,
+        qr_data: r.qr_data || (r.template_id ? { template_id: r.template_id, student_id: r.student_id } : null),
+        detected_answers: detected,
+        read_errors: r.errors || r.read_errors || [],
         success: r.success !== false,
       });
+    }
+
+    if (submissionsToInsert.length === 0) {
+      return json({ error: "API OMR não retornou resultados válidos", raw: result }, 502);
     }
 
     const { data: inserted, error: insErr } = await supabase
@@ -157,19 +171,16 @@ Deno.serve(async (req) => {
       return json({ error: insErr.message }, 500);
     }
 
-    return json(
-      {
-        success: true,
-        processed: submissionsToInsert.length,
-        submission_ids: (inserted || []).map((r: any) => r.id),
-        summary: {
-          total: apiResults.length,
-          ok: apiResults.filter((r: any) => r.success !== false).length,
-          failed: apiResults.filter((r: any) => r.success === false).length,
-        },
+    return json({
+      success: true,
+      processed: submissionsToInsert.length,
+      submission_ids: (inserted || []).map((r: any) => r.id),
+      summary: {
+        total: apiResults.length,
+        ok: apiResults.filter((r: any) => r.success !== false).length,
+        failed: apiResults.filter((r: any) => r.success === false).length,
       },
-      200,
-    );
+    }, 200);
   } catch (err: any) {
     console.error("Erro inesperado:", err);
     return json({ error: err.message || "Erro interno" }, 500);
