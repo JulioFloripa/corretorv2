@@ -94,7 +94,8 @@ const OmrDone = () => {
         let totalScore = 0, maxScore = 0;
         const answersToInsert: any[] = [];
         for (const q of filteredQs) {
-          const detected = sub.detected_answers?.[String(q.question_number)] ?? null;
+          // O banco salva detected_answers com chaves no formato "q{n}" (ex: "q21", "q22")
+          const detected = sub.detected_answers?.[`q${q.question_number}`] ?? null;
           const points = Number(q.points) || 1;
           let isCorrect = false, pointsEarned = 0;
 

@@ -127,13 +127,17 @@ const OmrReview = () => {
     ).slice(0, 50);
   }, [students, studentSearchTerm]);
 
+  // Helpers para normalizar chaves: banco salva como "q{n}", mas ao editar
+  // internamente usamos também "q{n}" para consistência.
+  const qKey = (n: number) => `q${n}`;
+
   // Status por questão
   const getStatus = useCallback((q: Question): "ok" | "empty" | "error" => {
-    const v = answers[String(q.question_number)];
+    const v = answers[qKey(q.question_number)];
     if (!v || v === "" || v === "null") return "empty";
     // Se o erro do OMR menciona essa questão, marca como erro até ser corrigida
     const errMatch = (current?.read_errors || []).some((e) => new RegExp(`Q0?${q.question_number}\\b`).test(e));
-    if (errMatch && !current?.manual_corrections?.[String(q.question_number)]) return "error";
+    if (errMatch && !current?.manual_corrections?.[qKey(q.question_number)]) return "error";
     return "ok";
   }, [answers, current]);
 
@@ -150,12 +154,12 @@ const OmrReview = () => {
 
   const openEdit = (q: Question) => {
     setEditingQ(q);
-    setEditValue(answers[String(q.question_number)] || "");
+    setEditValue(answers[qKey(q.question_number)] || "");
   };
 
   const saveEdit = () => {
     if (!editingQ) return;
-    setAnswers((prev) => ({ ...prev, [String(editingQ.question_number)]: editValue || null }));
+    setAnswers((prev) => ({ ...prev, [qKey(editingQ.question_number)]: editValue || null }));
     setEditingQ(null);
   };
 
@@ -193,6 +197,7 @@ const OmrReview = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       // detectar quais foram corrigidas manualmente
+      // As chaves em `answers` e `detected_answers` estão no formato "q{n}"
       const original = current.detected_answers || {};
       const manual: Record<string, string | null> = {};
       Object.keys(answers).forEach((k) => {
@@ -301,7 +306,16 @@ const OmrReview = () => {
               {currentStudent ? (
                 <>Aluno: <strong>{currentStudent.name}</strong> {currentStudent.student_id && `(${currentStudent.student_id})`}</>
               ) : (
-                <span className="text-destructive">Sem aluno vinculado — QR não foi lido</span>
+                <>
+                  <span className="text-destructive">Sem aluno vinculado</span>
+                  {current?.qr_data?.student_id && (
+                    <span className="text-muted-foreground ml-1">
+                      — QR lido: matrícula <strong>{current.qr_data.student_id}</strong>
+                      {current.qr_data.template_id && ` / template ${String(current.qr_data.template_id).slice(0, 8)}…`}
+                    </span>
+                  )}
+                  {!current?.qr_data?.student_id && <span className="text-muted-foreground ml-1">— QR não foi lido</span>}
+                </>
               )}
             </div>
           </div>
@@ -379,8 +393,8 @@ const OmrReview = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3">
               {questions.map((q) => {
                 const status = getStatus(q);
-                const value = answers[String(q.question_number)] || "";
-                const isManual = current.manual_corrections?.[String(q.question_number)] !== undefined;
+                const value = answers[qKey(q.question_number)] || "";
+                const isManual = current.manual_corrections?.[qKey(q.question_number)] !== undefined;
                 return (
                   <button
                     key={q.question_number}
