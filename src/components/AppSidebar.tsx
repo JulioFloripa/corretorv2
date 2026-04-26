@@ -7,7 +7,8 @@ import {
   FolderOpen,
   Users,
   GraduationCap,
-  BookOpen
+  LayoutDashboard,
+  BookOpen,
   LayoutDashboard,
   LogOut,
 } from "lucide-react";
