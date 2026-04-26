@@ -50,6 +50,36 @@ export type Database = {
         }
         Relationships: []
       }
+      classes: {
+        Row: {
+          campus: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          year: number | null
+        }
+        Insert: {
+          campus: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          year?: number | null
+        }
+        Update: {
+          campus?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
       corrections: {
         Row: {
           created_at: string | null
@@ -287,6 +317,7 @@ export type Database = {
       students: {
         Row: {
           campus: string | null
+          class_id: string | null
           created_at: string
           email: string | null
           foreign_language: string | null
@@ -298,6 +329,7 @@ export type Database = {
         }
         Insert: {
           campus?: string | null
+          class_id?: string | null
           created_at?: string
           email?: string | null
           foreign_language?: string | null
@@ -309,6 +341,7 @@ export type Database = {
         }
         Update: {
           campus?: string | null
+          class_id?: string | null
           created_at?: string
           email?: string | null
           foreign_language?: string | null
@@ -318,7 +351,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "students_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       template_questions: {
         Row: {
