@@ -8,7 +8,6 @@ import {
   Users,
   BookOpen,
   Edit3,
-  ScanLine,
   LayoutDashboard,
 } from "lucide-react";
 
