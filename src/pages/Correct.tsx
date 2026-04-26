@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Upload, FileText, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Upload, FileText, CheckCircle2, ScanLine, ArrowRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -581,82 +582,172 @@ const Correct = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Corrigir Provas</CardTitle>
-            <CardDescription>
-              Envie um arquivo CSV ou Excel com as respostas dos alunos para correção automática
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label>Gabarito</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o gabarito" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name} ({template.total_questions} questões)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedTemplate && (
-                <Button variant="outline" size="sm" onClick={downloadTemplate} className="mt-2">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Baixar modelo Excel
-                </Button>
-              )}
-            </div>
+        <div className="max-w-2xl mx-auto">
+          <Tabs defaultValue="csv" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="csv" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Importar Planilha
+              </TabsTrigger>
+              <TabsTrigger value="omr" className="gap-2">
+                <ScanLine className="h-4 w-4" />
+                Escanear Gabarito
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="space-y-2">
-              <Label>Arquivo de Respostas</Label>
-              <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                <Input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="csv-upload"
-                />
-                <label htmlFor="csv-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                  {file ? (
-                    <>
-                      <FileText className="h-12 w-12 text-primary" />
-                      <p className="font-medium">{file.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Clique para trocar o arquivo
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-12 w-12 text-muted-foreground" />
-                      <p className="font-medium">Clique para enviar CSV ou Excel</p>
-                      <p className="text-sm text-muted-foreground">
-                        Formato: CSV/XLSX com colunas nome, matricula, q1, q2, q3...
-                      </p>
-                    </>
-                  )}
-                </label>
-              </div>
-            </div>
+            {/* ABA 1: IMPORTAR PLANILHA (lógica original preservada) */}
+            <TabsContent value="csv" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Importar Planilha de Respostas</CardTitle>
+                  <CardDescription>
+                    Envie um arquivo CSV ou Excel com as respostas dos alunos para correção automática
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label>Gabarito</Label>
+                    <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o gabarito" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name} ({template.total_questions} questões)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedTemplate && (
+                      <Button variant="outline" size="sm" onClick={downloadTemplate} className="mt-2">
+                        <FileText className="h-4 w-4 mr-1" />
+                        Baixar modelo Excel
+                      </Button>
+                    )}
+                  </div>
 
-            <div className="flex gap-3">
-              <Button
-                onClick={processCorrection}
-                disabled={!selectedTemplate || !file || processing}
-                className="flex-1"
-              >
-                {processing ? "Processando..." : "Corrigir Provas"}
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/templates")}>
-                Gerenciar Gabaritos
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="space-y-2">
+                    <Label>Arquivo de Respostas</Label>
+                    <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                      <Input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="csv-upload"
+                      />
+                      <label htmlFor="csv-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                        {file ? (
+                          <>
+                            <FileText className="h-12 w-12 text-primary" />
+                            <p className="font-medium">{file.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Clique para trocar o arquivo
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-12 w-12 text-muted-foreground" />
+                            <p className="font-medium">Clique para enviar CSV ou Excel</p>
+                            <p className="text-sm text-muted-foreground">
+                              Formato: CSV/XLSX com colunas nome, matricula, q1, q2, q3...
+                            </p>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={processCorrection}
+                      disabled={!selectedTemplate || !file || processing}
+                      className="flex-1"
+                    >
+                      {processing ? "Processando..." : "Corrigir Provas"}
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/templates")}>
+                      Gerenciar Gabaritos
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ABA 2: ESCANEAR GABARITO (entrada para o fluxo OMR) */}
+            <TabsContent value="omr" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Escanear Gabarito (Leitura Óptica)</CardTitle>
+                  <CardDescription>
+                    Envie imagens dos gabaritos digitalizados. O sistema identifica o aluno pelo QR Code
+                    impresso na folha e detecta as marcações automaticamente.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label>Prova</Label>
+                    <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a prova" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name} ({template.total_questions} questões)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Button
+                      onClick={() => selectedTemplate && navigate(`/omr/upload/${selectedTemplate}`)}
+                      disabled={!selectedTemplate}
+                      className="h-auto py-4 flex flex-col items-start gap-1"
+                    >
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Upload className="h-4 w-4" />
+                        Enviar imagens para leitura
+                      </div>
+                      <span className="text-xs opacity-90 font-normal">
+                        Faça upload das folhas escaneadas
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => selectedTemplate && navigate(`/omr/review/${selectedTemplate}`)}
+                      disabled={!selectedTemplate}
+                      className="h-auto py-4 flex flex-col items-start gap-1"
+                    >
+                      <div className="flex items-center gap-2 font-semibold">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Revisar leituras pendentes
+                      </div>
+                      <span className="text-xs opacity-90 font-normal">
+                        Valide respostas detectadas
+                      </span>
+                    </Button>
+                  </div>
+
+                  <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+                    Precisa gerar folhas com QR Code, matricular alunos ou ver todos os passos?{" "}
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-sm"
+                      onClick={() => navigate(selectedTemplate ? `/omr` : `/omr`)}
+                    >
+                      Abrir fluxo OMR completo
+                      <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </main>
 
       {/* Dialog de Progresso e Conclusão */}
