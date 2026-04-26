@@ -18,7 +18,7 @@ const OmrDone = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, reviewed: 0, manual: 0, discarded: 0, pending: 0 });
   const [calculating, setCalculating] = useState(false);
-  const [calcResult, setCalcResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [calcResult, setCalcResult] = useState<{ created: number; skipped: number; updated: number } | null>(null);
 
   useEffect(() => {
     if (!templateId) return;
@@ -72,7 +72,7 @@ const OmrDone = () => {
       const { data: studs } = await supabase.from("students").select("id, name, student_id, foreign_language").in("id", studentIds);
       const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
 
-      let created = 0, skipped = 0;
+      let created = 0, skipped = 0, updated = 0;
       for (const sub of subs as any[]) {
         if (!sub.student_id) { skipped++; continue; }
         const student = studMap.get(sub.student_id);
@@ -85,7 +85,7 @@ const OmrDone = () => {
           .eq("template_id", templateId)
           .eq("student_name", student.name)
           .maybeSingle();
-        if (existing) { skipped++; continue; }
+        // existing check agora ocorre depois do calculo de notas
 
         // Filtrar questões por idioma
         const lang = student.foreign_language || "Inglês";
@@ -133,6 +133,20 @@ const OmrDone = () => {
           });
         }
 
+        // UPSERT: se existe correcao, atualiza; senao, cria nova
+      let correctionId: string;
+      if (existing) {
+        correctionId = existing.id;
+        await supabase.from("student_answers").delete().eq("correction_id", correctionId);
+        await supabase.from("corrections").update({
+          total_score: totalScore,
+          max_score: maxScore,
+          percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
+          status: "completed",
+          student_id: student.student_id,
+        }).eq("id", correctionId);
+        updated++;
+      } else {
         const { data: corr, error: corrErr } = await supabase
           .from("corrections")
           .insert({
@@ -148,19 +162,19 @@ const OmrDone = () => {
           .select("id")
           .single();
         if (corrErr || !corr) { skipped++; continue; }
-
-        await supabase.from("student_answers").insert(
-          answersToInsert.map((a) => ({ ...a, correction_id: corr.id }))
-        );
-
-        // Vincula correção ao scan
-        await supabase.from("scan_submissions").update({ correction_id: corr.id }).eq("id", sub.id);
-
+        correctionId = corr.id;
         created++;
       }
 
-      setCalcResult({ created, skipped });
-      toast({ title: "Notas calculadas!", description: `${created} correções criadas, ${skipped} ignoradas.` });
+      await supabase.from("student_answers").insert(
+        answersToInsert.map((a) => ({ ...a, correction_id: correctionId }))
+      );
+
+      await supabase.from("scan_submissions").update({ correction_id: correctionId }).eq("id", sub.id);
+      }
+
+      setCalcResult({ created, skipped, updated });
+      toast({ title: "Notas calculadas!", description: `${created} criadas, ${updated} atualizadas, ${skipped} ignoradas.` });
     } catch (err: any) {
       toast({ title: "Erro ao calcular", description: err.message, variant: "destructive" });
     } finally {
@@ -245,7 +259,7 @@ const OmrDone = () => {
                     <AlertTitle>Concluído</AlertTitle>
                     <AlertDescription className="space-y-2">
                       <div className="flex gap-2">
-                        <Badge variant="default">{calcResult.created} correções criadas</Badge>
+                        <Badge variant="default">{calcResult.created} novas, {calcResult.updated} atualizadas</Badge>
                         {calcResult.skipped > 0 && <Badge variant="secondary">{calcResult.skipped} ignoradas</Badge>}
                       </div>
                       <Button size="sm" onClick={() => navigate("/history")}>Ver histórico</Button>
