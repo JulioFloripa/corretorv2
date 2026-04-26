@@ -6,6 +6,7 @@ import {
   BarChart3,
   FolderOpen,
   Users,
+  GraduationCap,
   BookOpen,
   Edit3,
   LayoutDashboard,
@@ -67,6 +68,7 @@ const groups: NavGroup[] = [
     items: [
       { title: "Provas / Gabaritos", url: "/templates", icon: FolderOpen, matchPrefixes: ["/templates"] },
       { title: "Alunos", url: "/students", icon: Users, end: true },
+      { title: "Turmas", url: "/classes", icon: GraduationCap, end: true },
       { title: "Disciplinas", url: "/disciplines", icon: BookOpen, end: true },
     ],
   },
