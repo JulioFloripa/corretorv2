@@ -7,8 +7,8 @@ import {
   FolderOpen,
   Users,
   GraduationCap,
-  BookOpen
   LayoutDashboard,
+  BookOpen,
   LogOut,
 } from "lucide-react";
 import { useState, useEffect } from "react";
