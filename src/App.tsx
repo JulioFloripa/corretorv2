@@ -24,6 +24,7 @@ import OmrUpload from "./pages/OmrUpload";
 import OmrReview from "./pages/OmrReview";
 import OmrDone from "./pages/OmrDone";
 import NotFound from "./pages/NotFound";
+import AppLayout from "./components/AppLayout";
 
 const queryClient = new QueryClient();
 
@@ -36,24 +37,26 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/templates" element={<Templates />} />
-          <Route path="/templates/:id" element={<TemplateEdit />} />
-          <Route path="/correct" element={<Correct />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/boletins" element={<Boletins />} />
-          <Route path="/boletins/acafe" element={<BoletimAcafe />} />
-          <Route path="/disciplines" element={<Disciplines />} />
-          <Route path="/students/edit" element={<StudentEdit />} />
-          <Route path="/students/performance" element={<StudentPerformance />} />
-          <Route path="/students" element={<Students />} />
-          <Route path="/omr" element={<OmrHub />} />
-          <Route path="/omr/enroll/:templateId" element={<OmrEnroll />} />
-          <Route path="/omr/generate/:templateId" element={<OmrGenerate />} />
-          <Route path="/omr/upload/:templateId" element={<OmrUpload />} />
-          <Route path="/omr/review/:templateId" element={<OmrReview />} />
-          <Route path="/omr/done/:templateId" element={<OmrDone />} />
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/templates/:id" element={<TemplateEdit />} />
+            <Route path="/correct" element={<Correct />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/boletins" element={<Boletins />} />
+            <Route path="/boletins/acafe" element={<BoletimAcafe />} />
+            <Route path="/disciplines" element={<Disciplines />} />
+            <Route path="/students/edit" element={<StudentEdit />} />
+            <Route path="/students/performance" element={<StudentPerformance />} />
+            <Route path="/students" element={<Students />} />
+            <Route path="/omr" element={<OmrHub />} />
+            <Route path="/omr/enroll/:templateId" element={<OmrEnroll />} />
+            <Route path="/omr/generate/:templateId" element={<OmrGenerate />} />
+            <Route path="/omr/upload/:templateId" element={<OmrUpload />} />
+            <Route path="/omr/review/:templateId" element={<OmrReview />} />
+            <Route path="/omr/done/:templateId" element={<OmrDone />} />
+          </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
