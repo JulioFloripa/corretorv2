@@ -7,10 +7,13 @@ import {
   FolderOpen,
   Users,
   GraduationCap,
-  BookOpen,
-  Edit3,
+  BookOpen
   LayoutDashboard,
+  LogOut,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 import {
   Sidebar,
@@ -22,6 +25,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 import FlemingLogo from "@/components/FlemingLogo";
@@ -52,7 +56,6 @@ const groups: NavGroup[] = [
     label: "Correção",
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
-      { title: "Editar Respostas", url: "/students/edit", icon: Edit3, end: true },
     ],
   },
   {
@@ -125,6 +128,22 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+    <SidebarFooter className="border-t p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Sair"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = "/auth";
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span>Sair</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
