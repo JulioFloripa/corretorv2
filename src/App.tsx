@@ -17,6 +17,7 @@ import Disciplines from "./pages/Disciplines";
 import StudentEdit from "./pages/StudentEdit";
 import StudentPerformance from "./pages/StudentPerformance";
 import Students from "./pages/Students";
+import Classes from "./pages/Classes";
 import OmrHub from "./pages/OmrHub";
 import OmrEnroll from "./pages/OmrEnroll";
 import OmrGenerate from "./pages/OmrGenerate";
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/students/edit" element={<StudentEdit />} />
             <Route path="/students/performance" element={<StudentPerformance />} />
             <Route path="/students" element={<Students />} />
+            <Route path="/classes" element={<Classes />} />
             <Route path="/omr" element={<OmrHub />} />
             <Route path="/omr/enroll/:templateId" element={<OmrEnroll />} />
             <Route path="/omr/generate/:templateId" element={<OmrGenerate />} />

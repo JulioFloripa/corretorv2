@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Search, UserPlus, UserMinus, Save, Pencil } from "lucide-react";
+import { ArrowLeft, Search, UserPlus, UserMinus, Save, Pencil, GraduationCap } from "lucide-react";
 
 const CAMPUSES = ["TODAS", "CHAPECÓ", "CRICIÚMA", "FLORIANÓPOLIS", "ON-LINE", "PORTO ALEGRE"];
 
@@ -19,6 +19,14 @@ interface Student {
   name: string;
   student_id: string | null;
   campus: string | null;
+  class_id?: string | null;
+}
+
+interface ClassRow {
+  id: string;
+  campus: string;
+  name: string;
+  year: number | null;
 }
 
 const OmrEnroll = () => {
@@ -28,6 +36,7 @@ const OmrEnroll = () => {
 
   const [templateName, setTemplateName] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<ClassRow[]>([]);
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set());
   const [originalEnrolled, setOriginalEnrolled] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -41,13 +50,15 @@ const OmrEnroll = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return navigate("/auth");
 
-      const [{ data: tpl }, { data: studs }, { data: enr }] = await Promise.all([
+      const [{ data: tpl }, { data: studs }, { data: enr }, { data: cls }] = await Promise.all([
         supabase.from("templates").select("name").eq("id", templateId).maybeSingle(),
-        supabase.from("students").select("id, name, student_id, campus").order("name"),
+        supabase.from("students").select("id, name, student_id, campus, class_id").order("name"),
         supabase.from("template_students").select("student_id").eq("template_id", templateId),
+        supabase.from("classes").select("id, campus, name, year").order("campus").order("name"),
       ]);
       setTemplateName(tpl?.name || "");
       setStudents(studs || []);
+      setClasses(cls || []);
       const ids = new Set((enr || []).map((r: any) => r.student_id));
       setEnrolledIds(ids);
       setOriginalEnrolled(new Set(ids));
@@ -90,6 +101,35 @@ const OmrEnroll = () => {
       return next;
     });
   };
+
+  // Liberar prova para uma turma inteira: marca todos os alunos da turma
+  const enrollWholeClass = (classId: string) => {
+    const studentIds = students.filter((s) => s.class_id === classId).map((s) => s.id);
+    if (studentIds.length === 0) {
+      toast({ title: "Turma vazia", description: "Esta turma ainda não tem alunos vinculados.", variant: "destructive" });
+      return;
+    }
+    setEnrolledIds((prev) => {
+      const next = new Set(prev);
+      studentIds.forEach((id) => next.add(id));
+      return next;
+    });
+    const cls = classes.find((c) => c.id === classId);
+    toast({
+      title: "Turma liberada",
+      description: `${studentIds.length} aluno(s) da turma "${cls?.name}" foram adicionados. Clique em "Salvar matrículas" para confirmar.`,
+    });
+  };
+
+  // Agrupa turmas por sede para dropdown hierárquico
+  const classesByCampus = useMemo(() => {
+    const map = new Map<string, ClassRow[]>();
+    classes.forEach((c) => {
+      if (!map.has(c.campus)) map.set(c.campus, []);
+      map.get(c.campus)!.push(c);
+    });
+    return map;
+  }, [classes]);
 
   const save = async () => {
     if (!templateId) return;
@@ -145,6 +185,50 @@ const OmrEnroll = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-5xl">
+        {/* Liberação rápida por turma */}
+        <Card className="mb-4 border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <GraduationCap className="h-5 w-5 text-primary" />
+              Liberar prova para uma turma inteira
+            </CardTitle>
+            <CardDescription>
+              Selecione uma turma para adicionar automaticamente todos os seus alunos à lista de matriculados.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {classes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma turma cadastrada.{" "}
+                <button className="text-primary underline" onClick={() => navigate("/classes")}>
+                  Criar uma turma
+                </button>
+              </p>
+            ) : (
+              <Select onValueChange={enrollWholeClass}>
+                <SelectTrigger className="md:w-96">
+                  <SelectValue placeholder="Escolha uma turma para liberar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {[...classesByCampus.entries()].map(([campus, list]) => (
+                    <div key={campus}>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase">{campus}</div>
+                      {list.map((c) => {
+                        const count = students.filter((s) => s.class_id === c.id).length;
+                        return (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} {c.year ? `(${c.year})` : ""} — {count} aluno(s)
+                          </SelectItem>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
