@@ -9,7 +9,6 @@ import {
   GraduationCap,
   LayoutDashboard,
   BookOpen,
-  LayoutDashboard,
   LogOut,
 } from "lucide-react";
 import { useState, useEffect } from "react";
