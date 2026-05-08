@@ -1,1 +1,4 @@
+
+[functions.debug-omr-url]
+verify_jwt = false
 project_id = "ckouestrtrvzwhvjnokf"
