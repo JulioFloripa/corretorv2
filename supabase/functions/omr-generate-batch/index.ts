@@ -104,34 +104,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Montar payload no contrato esperado pela OMR API
+    // Payload v5: simplificado — { template_type, students:[{id, name, sede}] }
     const payload = {
-      template_id: template.id,
-      template_name: template.name,
-      exam_type: String(template.exam_type || "").toUpperCase(),
-      template_type: String(template.exam_type || "").toUpperCase(),
-      total_questions: template.total_questions,
-      alternatives: (() => {
-        const t = String(template.exam_type || "").toUpperCase();
-        if (t === "ENEM") return ["A", "B", "C", "D", "E"];
-        if (t === "UFSC") return ["01", "02", "04", "08", "16"];
-        return ["A", "B", "C", "D"]; // ACAFE e outros
-      })(),
-      questions: (questions || []).map((q: any) => ({
-        question_number: q.question_number,
-        question_type: q.question_type,
-        num_propositions: q.num_propositions,
-      })),
+      template_type: String(template.exam_type || "ACAFE").toUpperCase(),
       students: sheets.map((sh) => {
         const student = students.find((s: any) => s.id === sh.student_id)!;
         return {
-          id: student.id,
-          student_id: student.student_id || "",
-          sheet_uuid: sh.sheet_uuid,
+          id: student.student_id || student.id,
           name: student.name,
-          matricula: student.student_id || "",
           sede: student.campus || "",
-          campus: student.campus || "",
         };
       }),
     };

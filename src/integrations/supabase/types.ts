@@ -218,6 +218,7 @@ export type Database = {
           detected_answers: Json
           discarded: boolean
           id: string
+          language: string | null
           manual_corrections: Json | null
           qr_data: Json | null
           read_errors: string[] | null
@@ -228,6 +229,7 @@ export type Database = {
           student_id: string | null
           success: boolean
           template_id: string
+          template_type: string | null
           updated_at: string
           user_id: string
         }
@@ -238,6 +240,7 @@ export type Database = {
           detected_answers?: Json
           discarded?: boolean
           id?: string
+          language?: string | null
           manual_corrections?: Json | null
           qr_data?: Json | null
           read_errors?: string[] | null
@@ -248,6 +251,7 @@ export type Database = {
           student_id?: string | null
           success?: boolean
           template_id: string
+          template_type?: string | null
           updated_at?: string
           user_id: string
         }
@@ -258,6 +262,7 @@ export type Database = {
           detected_answers?: Json
           discarded?: boolean
           id?: string
+          language?: string | null
           manual_corrections?: Json | null
           qr_data?: Json | null
           read_errors?: string[] | null
@@ -268,6 +273,7 @@ export type Database = {
           student_id?: string | null
           success?: boolean
           template_id?: string
+          template_type?: string | null
           updated_at?: string
           user_id?: string
         }
