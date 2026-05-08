@@ -105,10 +105,10 @@ const OmrGenerate = () => {
 
             {existingSheets > 0 && !result && (
               <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Folhas existentes</AlertTitle>
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <AlertTitle>Reimpressão disponível</AlertTitle>
                 <AlertDescription>
-                  Esta prova já tem {existingSheets} folha(s) registrada(s). Re-gerar mantém os mesmos QR Codes (não invalida scans).
+                  Esta prova já tem <strong>{existingSheets} folha(s)</strong> geradas. Você pode reimprimir o ZIP a qualquer momento — os QR Codes são mantidos, então scans antigos continuam válidos.
                 </AlertDescription>
               </Alert>
             )}
@@ -120,7 +120,9 @@ const OmrGenerate = () => {
               size="lg"
             >
               {generating ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Gerando {enrolledCount} gabaritos...</>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{existingSheets > 0 ? "Preparando reimpressão" : "Gerando"} ({enrolledCount} gabaritos)...</>
+              ) : existingSheets > 0 ? (
+                <><Download className="h-4 w-4 mr-2" />Reimprimir {enrolledCount} gabaritos (mesmo QR)</>
               ) : (
                 <><FileText className="h-4 w-4 mr-2" />Gerar {enrolledCount} gabaritos</>
               )}
