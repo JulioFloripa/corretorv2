@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, CheckCircle2, Calculator, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Calculator, Loader2, AlertCircle, AlertTriangle, FileScan, UserX } from "lucide-react";
 import { calculateSummationScore, calculateOpenNumericScore } from "@/lib/ufsc-scoring";
 
 const OmrDone = () => {
@@ -16,7 +16,16 @@ const OmrDone = () => {
 
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, reviewed: 0, manual: 0, discarded: 0, pending: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    approved: 0,
+    problems: 0,
+    discarded: 0,
+    unmatched: 0,
+    readErrors: 0,
+    apiFailed: 0,
+    manuallyFixed: 0,
+  });
   const [calculating, setCalculating] = useState(false);
   const [calcResult, setCalcResult] = useState<{ created: number; skipped: number; updated: number } | null>(null);
 
@@ -32,15 +41,31 @@ const OmrDone = () => {
     setTemplateName(tpl?.name || "");
     const { data: subs } = await supabase
       .from("scan_submissions")
-      .select("id, reviewed, discarded, manual_corrections")
+      .select("id, reviewed, discarded, manual_corrections, success, read_errors, student_id")
       .eq("template_id", templateId);
     const list = (subs as any[]) || [];
+
+    const hasProblem = (s: any) =>
+      !s.discarded &&
+      !s.reviewed &&
+      (s.success === false || (Array.isArray(s.read_errors) && s.read_errors.length > 0) || !s.student_id);
+
+    const isApproved = (s: any) => {
+      if (s.discarded) return false;
+      if (s.reviewed) return true; // aprovado por auditoria humana
+      // auto-aprovado: lido com sucesso, sem erros e com aluno vinculado
+      return s.success !== false && (!s.read_errors || s.read_errors.length === 0) && !!s.student_id;
+    };
+
     setStats({
       total: list.length,
-      reviewed: list.filter((s) => s.reviewed && !s.discarded).length,
-      manual: list.filter((s) => s.reviewed && s.manual_corrections && Object.keys(s.manual_corrections).length > 0).length,
+      approved: list.filter(isApproved).length,
+      problems: list.filter(hasProblem).length,
       discarded: list.filter((s) => s.discarded).length,
-      pending: list.filter((s) => !s.reviewed && !s.discarded).length,
+      unmatched: list.filter((s) => !s.discarded && !s.student_id).length,
+      readErrors: list.filter((s) => !s.discarded && Array.isArray(s.read_errors) && s.read_errors.length > 0).length,
+      apiFailed: list.filter((s) => !s.discarded && s.success === false).length,
+      manuallyFixed: list.filter((s) => s.reviewed && s.manual_corrections && Object.keys(s.manual_corrections).length > 0).length,
     });
     setLoading(false);
   };
@@ -58,9 +83,8 @@ const OmrDone = () => {
         supabase.from("template_questions").select("*").eq("template_id", templateId).order("question_number"),
         supabase
           .from("scan_submissions")
-          .select("id, student_id, detected_answers")
+          .select("id, student_id, detected_answers, reviewed, success, read_errors")
           .eq("template_id", templateId)
-          .eq("reviewed", true)
           .eq("discarded", false),
       ]);
 
@@ -68,12 +92,18 @@ const OmrDone = () => {
         throw new Error("Nada para calcular");
       }
 
-      const studentIds = [...new Set(subs.map((s: any) => s.student_id).filter(Boolean))];
+      // Filtra apenas scans aprovados: revisados OU sem erros e com sucesso
+      const approvedSubs = (subs as any[]).filter((s) => {
+        if (!s.student_id) return false;
+        if (s.reviewed) return true;
+        return s.success !== false && (!s.read_errors || s.read_errors.length === 0);
+      });
+      const studentIds = [...new Set(approvedSubs.map((s: any) => s.student_id).filter(Boolean))];
       const { data: studs } = await supabase.from("students").select("id, name, student_id, foreign_language").in("id", studentIds);
       const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
 
       let created = 0, skipped = 0, updated = 0;
-      for (const sub of subs as any[]) {
+      for (const sub of approvedSubs) {
         if (!sub.student_id) { skipped++; continue; }
         const student = studMap.get(sub.student_id);
         if (!student) { skipped++; continue; }
@@ -204,25 +234,48 @@ const OmrDone = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                  Status dos scans
+                  <FileScan className="h-5 w-5 text-primary" />
+                  Status dos gabaritos lidos
                 </CardTitle>
                 <CardDescription>
-                  {stats.pending === 0 ? "Tudo revisado!" : `Ainda há ${stats.pending} scan(s) para revisar.`}
+                  {stats.total === 0
+                    ? "Nenhum gabarito enviado ainda."
+                    : stats.problems === 0
+                      ? `Todos os ${stats.total} gabaritos estão prontos.`
+                      : `${stats.problems} gabarito(s) precisam de atenção do coordenador.`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Stat label="Total" value={stats.total} />
-                  <Stat label="Aprovados" value={stats.reviewed} accent="primary" />
-                  <Stat label="Corrigidos manualmente" value={stats.manual} />
+                  <Stat label="Lidos no banco" value={stats.total} />
+                  <Stat label="Aprovados" value={stats.approved} accent="primary" />
+                  <Stat label="Com problemas" value={stats.problems} accent={stats.problems > 0 ? "destructive" : undefined} />
                   <Stat label="Descartados" value={stats.discarded} />
                 </div>
 
-                {stats.pending > 0 && (
-                  <Button onClick={() => navigate(`/omr/review/${templateId}`)} variant="outline" className="w-full">
-                    Continuar revisão ({stats.pending} pendente(s))
-                  </Button>
+                {stats.problems > 0 && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      Pendências detectadas
+                    </div>
+                    <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                      {stats.apiFailed > 0 && <li>{stats.apiFailed} gabarito(s) falharam na leitura pela API.</li>}
+                      {stats.readErrors > 0 && <li>{stats.readErrors} gabarito(s) com erros de leitura em alguma questão.</li>}
+                      {stats.unmatched > 0 && (
+                        <li className="flex items-center gap-1"><UserX className="h-3 w-3" />{stats.unmatched} sem aluno vinculado (matrícula não encontrada).</li>
+                      )}
+                    </ul>
+                    <Button onClick={() => navigate(`/omr/review/${templateId}`)} variant="destructive" size="sm" className="w-full mt-2">
+                      Resolver pendências ({stats.problems})
+                    </Button>
+                  </div>
+                )}
+
+                {stats.manuallyFixed > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    {stats.manuallyFixed} gabarito(s) foram corrigidos manualmente por auditoria.
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -245,11 +298,11 @@ const OmrDone = () => {
                     Alunos que já têm correção nesta prova são ignorados.
                   </AlertDescription>
                 </Alert>
-                <Button onClick={calculateGrades} disabled={calculating || stats.reviewed === 0} size="lg" className="w-full">
+                <Button onClick={calculateGrades} disabled={calculating || stats.approved === 0} size="lg" className="w-full">
                   {calculating ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Calculando...</>
                   ) : (
-                    <><Calculator className="h-4 w-4 mr-2" />Calcular notas de {stats.reviewed} aluno(s)</>
+                    <><Calculator className="h-4 w-4 mr-2" />Calcular notas de {stats.approved} aluno(s)</>
                   )}
                 </Button>
 
@@ -275,9 +328,9 @@ const OmrDone = () => {
   );
 };
 
-const Stat = ({ label, value, accent }: { label: string; value: number; accent?: "primary" }) => (
+const Stat = ({ label, value, accent }: { label: string; value: number; accent?: "primary" | "destructive" }) => (
   <div className="border rounded-lg p-3 text-center">
-    <div className={`text-3xl font-bold ${accent === "primary" ? "text-primary" : ""}`}>{value}</div>
+    <div className={`text-3xl font-bold ${accent === "primary" ? "text-primary" : accent === "destructive" ? "text-destructive" : ""}`}>{value}</div>
     <div className="text-xs text-muted-foreground">{label}</div>
   </div>
 );
