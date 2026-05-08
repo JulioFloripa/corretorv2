@@ -9,6 +9,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   BookOpen,
+  Printer,
   LogOut,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -56,6 +57,7 @@ const groups: NavGroup[] = [
     label: "Correção",
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
+      { title: "Imprimir Gabaritos", url: "/omr", icon: Printer, matchPrefixes: ["/omr"] },
     ],
   },
   {
