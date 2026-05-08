@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
       return json({ error: "template_id e scan_paths são obrigatórios" }, 400);
     }
 
-    // Carregar template + número de questões para construir o config esperado pela API OMR
     const { data: template } = await supabase
       .from("templates")
       .select("id, exam_type")
@@ -46,59 +45,39 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!template) return json({ error: "Prova não encontrada" }, 404);
 
-    const { data: questions } = await supabase
-      .from("template_questions")
-      .select("question_number")
-      .eq("template_id", body.template_id);
-
-    const totalQuestions = (questions && questions.length > 0) ? questions.length : 63;
-    const alternatives = ["A", "B", "C", "D"];
-
-    // Baixar bytes das imagens do Storage para enviar como multipart
-    const scanFiles: Array<{ scan_id: string; filename: string; blob: Blob; path: string }> = [];
+    // v5: gerar signed URLs para cada scan e enviar via /scan-batch-url
+    const scanFiles: Array<{ scan_id: string; filename: string; path: string; image_url: string }> = [];
     for (const path of body.scan_paths) {
-      const { data: blob, error: dlErr } = await supabase.storage
+      const { data: signed, error: sErr } = await supabase.storage
         .from("omr-scans")
-        .download(path);
-      if (dlErr || !blob) {
-        console.error("Erro ao baixar imagem:", path, dlErr);
+        .createSignedUrl(path, 3600);
+      if (sErr || !signed) {
+        console.error("Erro ao gerar signed URL:", path, sErr);
         continue;
       }
       const filename = path.split("/").pop() || `scan_${crypto.randomUUID()}.jpg`;
       scanFiles.push({
         scan_id: crypto.randomUUID(),
         filename,
-        blob,
         path,
+        image_url: signed.signedUrl,
       });
     }
 
     if (scanFiles.length === 0) {
-      return json({ error: "Não foi possível baixar nenhuma imagem" }, 500);
+      return json({ error: "Não foi possível preparar nenhuma imagem" }, 500);
     }
 
-    // Montar multipart/form-data: files[] + config (JSON no formato que a API OMR espera)
-    // Schema confirmado via teste com curl: { total_questions, alternatives, scans }
-    // O template_id real é lido do QR Code pela própria API, não precisa enviar.
-    const formData = new FormData();
-    for (const s of scanFiles) {
-      formData.append("files", s.blob, s.filename);
-    }
-    const apiConfig = {
-      total_questions: totalQuestions,
-      alternatives: alternatives,
-      scans: scanFiles.map((s) => ({ scan_id: s.scan_id, filename: s.filename })),
-    };
-    formData.append("config", JSON.stringify(apiConfig));
-
-    // POST para a API OMR (endpoint /scan-batch, multipart)
-    // NÃO setar Content-Type manualmente - fetch monta com boundary correto
-    const omrRes = await fetch(`${OMR_API_URL}/scan-batch`, {
+    const omrRes = await fetch(`${OMR_API_URL}/scan-batch-url`, {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         "X-Fleming-Token": OMR_API_TOKEN,
       },
-      body: formData,
+      body: JSON.stringify({
+        template: { template_type: String(template.exam_type || "ACAFE").toUpperCase() },
+        scans: scanFiles.map((s) => ({ scan_id: s.scan_id, image_url: s.image_url })),
+      }),
     });
 
     if (!omrRes.ok) {
@@ -110,38 +89,39 @@ Deno.serve(async (req) => {
     const result = await omrRes.json();
     const apiResults: any[] = result.results || [];
 
-    // Mapear resultados de volta pros paths e gravar scan_submissions
-    // A API retorna filename (e talvez scan_id); usamos filename como chave principal.
-    const filenameToScan = new Map(scanFiles.map((s) => [s.filename, s]));
+    // v5: API retorna scan_id pra mapear de volta ao path original
+    const scanIdToFile = new Map(scanFiles.map((s) => [s.scan_id, s]));
     const submissionsToInsert: any[] = [];
     for (const r of apiResults) {
-      const matched = filenameToScan.get(r.filename) ||
-        scanFiles.find((s) => s.scan_id === r.scan_id);
+      const matched = scanIdToFile.get(r.scan_id);
       if (!matched) continue;
 
-      // Resolver student_id e answer_sheet_id via QR (se a API retornou template_id/student_id, usamos)
+      // v5: resolver student via matricula (r.student_id é a matrícula string)
       let studentDbId: string | null = null;
       let sheetDbId: string | null = null;
-      const sheetUuid = r.qr_data?.sheet_uuid || r.sheet_uuid || null;
-      if (sheetUuid) {
-        const { data: sheet } = await supabase
-          .from("answer_sheets")
-          .select("id, student_id")
-          .eq("sheet_uuid", sheetUuid)
+      if (r.student_id) {
+        const { data: stu } = await supabase
+          .from("students")
+          .select("id")
+          .eq("student_id", String(r.student_id))
           .maybeSingle();
-        if (sheet) {
-          sheetDbId = sheet.id;
-          studentDbId = sheet.student_id;
+        if (stu) {
+          studentDbId = stu.id;
+          const { data: sheet } = await supabase
+            .from("answer_sheets")
+            .select("id")
+            .eq("template_id", template.id)
+            .eq("student_id", stu.id)
+            .maybeSingle();
+          if (sheet) sheetDbId = sheet.id;
         }
       }
 
-      // Normalizar respostas: API retorna array [{question_number, answer}]; gravamos como objeto {q1: "A", q2: "B", ...}
+      // v5: detected_answers vem como { "1": "A", "2": "C", ... } — normalizar para "q1", "q2"
       const detected: Record<string, string> = {};
-      const answersArr = Array.isArray(r.answers) ? r.answers : [];
-      for (const a of answersArr) {
-        if (a && a.question_number != null && a.answer != null) {
-          detected[`q${a.question_number}`] = a.answer;
-        }
+      const rawAnswers = r.detected_answers || {};
+      for (const [k, v] of Object.entries(rawAnswers)) {
+        if (v != null && v !== "") detected[`q${k}`] = String(v);
       }
 
       submissionsToInsert.push({
@@ -150,10 +130,16 @@ Deno.serve(async (req) => {
         student_id: studentDbId,
         answer_sheet_id: sheetDbId,
         scan_image_path: matched.path,
-        qr_data: r.qr_data || (r.template_id ? { template_id: r.template_id, student_id: r.student_id } : null),
+        qr_data: {
+          template_id: r.template_id || null,
+          student_id: r.student_id || null,
+          template_type: r.template_type || null,
+        },
         detected_answers: detected,
-        read_errors: r.errors || r.read_errors || [],
+        read_errors: r.errors || [],
         success: r.success !== false,
+        language: r.language || null,
+        template_type: r.template_type || null,
       });
     }
 

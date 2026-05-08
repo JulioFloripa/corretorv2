@@ -25,6 +25,7 @@ interface Submission {
   answer_sheet_id: string | null;
   manual_corrections: Record<string, string | null> | null;
   success: boolean;
+  language?: string | null;
 }
 
 interface Question {
@@ -74,7 +75,7 @@ const OmrReview = () => {
         supabase.from("templates").select("name").eq("id", templateId).maybeSingle(),
         supabase
           .from("scan_submissions")
-          .select("id, scan_image_path, qr_data, detected_answers, read_errors, student_id, answer_sheet_id, manual_corrections, success")
+          .select("id, scan_image_path, qr_data, detected_answers, read_errors, student_id, answer_sheet_id, manual_corrections, success, language")
           .eq("template_id", templateId)
           .eq("reviewed", false)
           .eq("discarded", false)
@@ -304,7 +305,12 @@ const OmrReview = () => {
             </div>
             <div className="text-xs text-muted-foreground">
               {currentStudent ? (
-                <>Aluno: <strong>{currentStudent.name}</strong> {currentStudent.student_id && `(${currentStudent.student_id})`}</>
+                <>
+                  Aluno: <strong>{currentStudent.name}</strong> {currentStudent.student_id && `(${currentStudent.student_id})`}
+                  {current?.language && (
+                    <span className="ml-2">• Língua estrangeira: <strong>{current.language}</strong></span>
+                  )}
+                </>
               ) : (
                 <>
                   <span className="text-destructive">Sem aluno vinculado</span>
