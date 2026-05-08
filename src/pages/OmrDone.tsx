@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, CheckCircle2, Calculator, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Calculator, Loader2, AlertCircle, AlertTriangle, FileScan, UserX } from "lucide-react";
 import { calculateSummationScore, calculateOpenNumericScore } from "@/lib/ufsc-scoring";
 
 const OmrDone = () => {
@@ -16,7 +16,16 @@ const OmrDone = () => {
 
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, reviewed: 0, manual: 0, discarded: 0, pending: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    approved: 0,
+    problems: 0,
+    discarded: 0,
+    unmatched: 0,
+    readErrors: 0,
+    apiFailed: 0,
+    manuallyFixed: 0,
+  });
   const [calculating, setCalculating] = useState(false);
   const [calcResult, setCalcResult] = useState<{ created: number; skipped: number; updated: number } | null>(null);
 
@@ -32,15 +41,31 @@ const OmrDone = () => {
     setTemplateName(tpl?.name || "");
     const { data: subs } = await supabase
       .from("scan_submissions")
-      .select("id, reviewed, discarded, manual_corrections")
+      .select("id, reviewed, discarded, manual_corrections, success, read_errors, student_id")
       .eq("template_id", templateId);
     const list = (subs as any[]) || [];
+
+    const hasProblem = (s: any) =>
+      !s.discarded &&
+      !s.reviewed &&
+      (s.success === false || (Array.isArray(s.read_errors) && s.read_errors.length > 0) || !s.student_id);
+
+    const isApproved = (s: any) => {
+      if (s.discarded) return false;
+      if (s.reviewed) return true; // aprovado por auditoria humana
+      // auto-aprovado: lido com sucesso, sem erros e com aluno vinculado
+      return s.success !== false && (!s.read_errors || s.read_errors.length === 0) && !!s.student_id;
+    };
+
     setStats({
       total: list.length,
-      reviewed: list.filter((s) => s.reviewed && !s.discarded).length,
-      manual: list.filter((s) => s.reviewed && s.manual_corrections && Object.keys(s.manual_corrections).length > 0).length,
+      approved: list.filter(isApproved).length,
+      problems: list.filter(hasProblem).length,
       discarded: list.filter((s) => s.discarded).length,
-      pending: list.filter((s) => !s.reviewed && !s.discarded).length,
+      unmatched: list.filter((s) => !s.discarded && !s.student_id).length,
+      readErrors: list.filter((s) => !s.discarded && Array.isArray(s.read_errors) && s.read_errors.length > 0).length,
+      apiFailed: list.filter((s) => !s.discarded && s.success === false).length,
+      manuallyFixed: list.filter((s) => s.reviewed && s.manual_corrections && Object.keys(s.manual_corrections).length > 0).length,
     });
     setLoading(false);
   };
