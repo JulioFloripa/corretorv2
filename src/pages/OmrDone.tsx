@@ -83,9 +83,8 @@ const OmrDone = () => {
         supabase.from("template_questions").select("*").eq("template_id", templateId).order("question_number"),
         supabase
           .from("scan_submissions")
-          .select("id, student_id, detected_answers")
+          .select("id, student_id, detected_answers, reviewed, success, read_errors")
           .eq("template_id", templateId)
-          .eq("reviewed", true)
           .eq("discarded", false),
       ]);
 
@@ -93,12 +92,18 @@ const OmrDone = () => {
         throw new Error("Nada para calcular");
       }
 
-      const studentIds = [...new Set(subs.map((s: any) => s.student_id).filter(Boolean))];
+      // Filtra apenas scans aprovados: revisados OU sem erros e com sucesso
+      const approvedSubs = (subs as any[]).filter((s) => {
+        if (!s.student_id) return false;
+        if (s.reviewed) return true;
+        return s.success !== false && (!s.read_errors || s.read_errors.length === 0);
+      });
+      const studentIds = [...new Set(approvedSubs.map((s: any) => s.student_id).filter(Boolean))];
       const { data: studs } = await supabase.from("students").select("id, name, student_id, foreign_language").in("id", studentIds);
       const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
 
       let created = 0, skipped = 0, updated = 0;
-      for (const sub of subs as any[]) {
+      for (const sub of approvedSubs) {
         if (!sub.student_id) { skipped++; continue; }
         const student = studMap.get(sub.student_id);
         if (!student) { skipped++; continue; }
