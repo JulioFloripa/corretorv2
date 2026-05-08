@@ -323,9 +323,9 @@ const OmrDone = () => {
   );
 };
 
-const Stat = ({ label, value, accent }: { label: string; value: number; accent?: "primary" }) => (
+const Stat = ({ label, value, accent }: { label: string; value: number; accent?: "primary" | "destructive" }) => (
   <div className="border rounded-lg p-3 text-center">
-    <div className={`text-3xl font-bold ${accent === "primary" ? "text-primary" : ""}`}>{value}</div>
+    <div className={`text-3xl font-bold ${accent === "primary" ? "text-primary" : accent === "destructive" ? "text-destructive" : ""}`}>{value}</div>
     <div className="text-xs text-muted-foreground">{label}</div>
   </div>
 );
