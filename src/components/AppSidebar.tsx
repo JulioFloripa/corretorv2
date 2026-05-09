@@ -63,7 +63,7 @@ const groups: NavGroup[] = [
     label: "Correção",
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
-      { title: "Leitura Óptica", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
+      { title: "Leitura de Gabaritos", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
     ],
   },
   {
