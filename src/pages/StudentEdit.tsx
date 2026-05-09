@@ -8,7 +8,6 @@ import FlemingLogo from "@/components/FlemingLogo";
 import StudentSearchAdvanced from "@/components/student/StudentSearchAdvanced";
 import StudentListPaginated from "@/components/student/StudentListPaginated";
 import StudentExamsList from "@/components/student/StudentExamsList";
-import ExamAnswersEditor from "@/components/student/ExamAnswersEditor";
 import { searchStudents, getExamTypes, getStudentExams, SearchFilters, StudentSummary } from "@/lib/student-queries";
 
 interface StudentExam {
@@ -55,8 +54,6 @@ const StudentEdit = () => {
   // Estado do aluno selecionado
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [studentExams, setStudentExams] = useState<StudentExam[]>([]);
-  const [selectedExam, setSelectedExam] = useState<StudentExam | null>(null);
-  const [examAnswers, setExamAnswers] = useState<StudentAnswer[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -110,72 +107,13 @@ const StudentEdit = () => {
     }
   };
 
-  const handleEditExam = async (examId: string) => {
-    setLoading(true);
-    const exam = studentExams.find((e) => e.id === examId);
-    if (!exam) return;
-
-    try {
-      // Buscar respostas do aluno
-      const { data: answersData, error: answersError } = await supabase
-        .from("student_answers")
-        .select("id, question_number, student_answer, correct_answer, is_correct, points_earned")
-        .eq("correction_id", examId)
-        .order("question_number", { ascending: true });
-
-      if (answersError) throw answersError;
-
-      // Buscar pontuação de cada questão do template
-      const { data: questionsData, error: questionsError } = await supabase
-        .from("template_questions")
-        .select("question_number, points")
-        .eq("template_id", exam.templates?.id)
-        .order("question_number", { ascending: true });
-
-      if (questionsError) throw questionsError;
-
-      // Combinar dados
-      const pointsMap = new Map(
-        questionsData?.map((q) => [q.question_number, q.points]) || []
-      );
-
-      const answersWithPoints: StudentAnswer[] = (answersData || []).map((a) => ({
-        ...a,
-        points: pointsMap.get(a.question_number) || 0,
-      }));
-
-      setSelectedExam(exam);
-      setExamAnswers(answersWithPoints);
-    } catch (error) {
-      console.error("Erro ao carregar respostas:", error);
-      toast({
-        title: "Erro ao carregar",
-        description: "Não foi possível carregar as respostas da prova",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBackToExams = () => {
-    setSelectedExam(null);
-    setExamAnswers([]);
+  const handleEditExam = (examId: string) => {
+    navigate(`/corrections/${examId}/edit`);
   };
 
   const handleBackToList = () => {
     setSelectedStudentId("");
     setStudentExams([]);
-    setSelectedExam(null);
-    setExamAnswers([]);
-  };
-
-  const handleSaveSuccess = async () => {
-    // Recarregar lista de provas para atualizar notas
-    if (selectedStudentId) {
-      const exams = await getStudentExams(selectedStudentId); // selectedStudentId agora é student_name
-      setStudentExams(exams as StudentExam[]);
-    }
   };
 
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -194,7 +132,7 @@ const StudentEdit = () => {
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-6">
-          {!selectedStudentId && !selectedExam && (
+          {!selectedStudentId && (
             <>
               <StudentSearchAdvanced
                 onSearch={handleSearch}
@@ -219,7 +157,7 @@ const StudentEdit = () => {
             </>
           )}
 
-          {selectedStudentId && !selectedExam && studentExams.length > 0 && (
+          {selectedStudentId && studentExams.length > 0 && (
             <>
               <Button variant="outline" onClick={handleBackToList}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -233,18 +171,6 @@ const StudentEdit = () => {
                 onEditExam={handleEditExam}
               />
             </>
-          )}
-
-          {selectedExam && examAnswers.length > 0 && (
-            <ExamAnswersEditor
-              correctionId={selectedExam.id}
-              examName={selectedExam.templates?.name || "Prova"}
-              studentName={selectedExam.student_name}
-              answers={examAnswers}
-              essayScore={selectedExam.essay_score}
-              onBack={handleBackToExams}
-              onSaveSuccess={handleSaveSuccess}
-            />
           )}
         </div>
       </main>

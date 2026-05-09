@@ -24,6 +24,7 @@ import OmrGenerate from "./pages/OmrGenerate";
 import OmrUpload from "./pages/OmrUpload";
 import OmrReview from "./pages/OmrReview";
 import OmrDone from "./pages/OmrDone";
+import CorrectionEdit from "./pages/CorrectionEdit";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/AppLayout";
 
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/omr/upload/:templateId" element={<OmrUpload />} />
             <Route path="/omr/review/:templateId" element={<OmrReview />} />
             <Route path="/omr/done/:templateId" element={<OmrDone />} />
+            <Route path="/corrections/:id/edit" element={<CorrectionEdit />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
