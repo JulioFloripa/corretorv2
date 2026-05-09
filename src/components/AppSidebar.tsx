@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useParams } from "react-router-dom";
 import {
   FileCheck,
   History as HistoryIcon,
@@ -11,11 +11,16 @@ import {
   BookOpen,
   Printer,
   LogOut,
+  UserPlus,
+  FileText,
+  Upload,
+  ClipboardCheck,
+  CheckCircle2,
+  ScanLine,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +31,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -37,7 +45,7 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   /** Match exatamente. Se false, considera prefix match (ex.: /omr cobre /omr/upload/:id). */
   end?: boolean;
-  /** Padrões adicionais que também devem marcar o item como ativo. */
+  /** PadrÃµes adicionais que tambÃ©m devem marcar o item como ativo. */
   matchPrefixes?: string[];
 };
 
@@ -48,28 +56,28 @@ type NavGroup = {
 
 const groups: NavGroup[] = [
   {
-    label: "Início",
+    label: "InÃ­cio",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, end: true },
     ],
   },
   {
-    label: "Correção",
+    label: "CorreÃ§Ã£o",
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
-      { title: "Imprimir Gabaritos", url: "/omr", icon: Printer, matchPrefixes: ["/omr"] },
+      { title: "Leitura Ãptica", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
     ],
   },
   {
     label: "Resultados",
     items: [
-      { title: "Histórico", url: "/history", icon: HistoryIcon, end: true },
-      { title: "Análise de Desempenho", url: "/students/performance", icon: TrendingUp, end: true },
+      { title: "HistÃ³rico", url: "/history", icon: HistoryIcon, end: true },
+      { title: "AnÃ¡lise de Desempenho", url: "/students/performance", icon: TrendingUp, end: true },
       { title: "Boletins", url: "/boletins", icon: BarChart3, matchPrefixes: ["/boletins"] },
     ],
   },
   {
-    label: "Configurações",
+    label: "ConfiguraÃ§Ãµes",
     items: [
       { title: "Provas / Gabaritos", url: "/templates", icon: FolderOpen, matchPrefixes: ["/templates"] },
       { title: "Alunos", url: "/students", icon: Users, end: true },
@@ -79,10 +87,26 @@ const groups: NavGroup[] = [
   },
 ];
 
+/** Etapas do fluxo OMR â exibidas como sub-menu quando o usuÃ¡rio estÃ¡ dentro de /omr/* */
+const omrSteps = [
+  { title: "Matricular Alunos", segment: "enroll", icon: UserPlus },
+  { title: "Gerar Gabaritos", segment: "generate", icon: FileText },
+  { title: "Enviar Scans", segment: "upload", icon: Upload },
+  { title: "Revisar Leituras", segment: "review", icon: ClipboardCheck },
+  { title: "Resumo / Notas", segment: "done", icon: CheckCircle2 },
+];
+
 function isItemActive(pathname: string, item: NavItem): boolean {
   if (item.end) return pathname === item.url;
-  if (item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  if (item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(p + "/")))
+    return true;
   return pathname === item.url || pathname.startsWith(item.url + "/");
+}
+
+/** Extrai o templateId de qualquer rota /omr/<step>/<uuid> */
+function extractOmrTemplateId(pathname: string): string | null {
+  const match = pathname.match(/^\/omr\/(?:enroll|generate|upload|review|done)\/([a-f0-9-]+)/i);
+  return match ? match[1] : null;
 }
 
 export function AppSidebar() {
@@ -90,6 +114,9 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const pathname = location.pathname;
+
+  const isInsideOmr = pathname.startsWith("/omr");
+  const currentTemplateId = extractOmrTemplateId(pathname);
 
   return (
     <Sidebar collapsible="icon">
@@ -114,6 +141,8 @@ export function AppSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => {
                   const active = isItemActive(pathname, item);
+                  const isOmrParent = item.url === "/omr";
+
                   return (
                     <SidebarMenuItem key={item.url}>
                       <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
@@ -122,6 +151,28 @@ export function AppSidebar() {
                           {!collapsed && <span>{item.title}</span>}
                         </NavLink>
                       </SidebarMenuButton>
+
+                      {/* Sub-menu contextual: etapas do OMR */}
+                      {isOmrParent && isInsideOmr && currentTemplateId && !collapsed && (
+                        <SidebarMenuSub>
+                          {omrSteps.map((step) => {
+                            const stepUrl = `/omr/${step.segment}/${currentTemplateId}`;
+                            const stepActive = pathname.startsWith(`/omr/${step.segment}/`);
+                            const StepIcon = step.icon;
+
+                            return (
+                              <SidebarMenuSubItem key={step.segment}>
+                                <SidebarMenuSubButton asChild isActive={stepActive}>
+                                  <NavLink to={stepUrl}>
+                                    <StepIcon className="h-3.5 w-3.5" />
+                                    <span>{step.title}</span>
+                                  </NavLink>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            );
+                          })}
+                        </SidebarMenuSub>
+                      )}
                     </SidebarMenuItem>
                   );
                 })}
@@ -130,7 +181,8 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
-    <SidebarFooter className="border-t p-2">
+
+      <SidebarFooter className="border-t p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
