@@ -63,14 +63,14 @@ const groups: NavGroup[] = [
     label: "Correção",
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
-      { title: "Leitura Ãptica", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
+      { title: "Leitura Óptica", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
     ],
   },
   {
     label: "Resultados",
     items: [
-      { title: "HistÃ³rico", url: "/history", icon: HistoryIcon, end: true },
-      { title: "AnÃ¡lise de Desempenho", url: "/students/performance", icon: TrendingUp, end: true },
+      { title: "Histórico", url: "/history", icon: HistoryIcon, end: true },
+      { title: "Análise de Desempenho", url: "/students/performance", icon: TrendingUp, end: true },
       { title: "Boletins", url: "/boletins", icon: BarChart3, matchPrefixes: ["/boletins"] },
     ],
   },
