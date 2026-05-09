@@ -56,13 +56,11 @@ type NavGroup = {
 
 const groups: NavGroup[] = [
   {
-    label: "InÃ­cio",
-    items: [
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, end: true },
-    ],
+    label: "Início",
+    items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, end: true }],
   },
   {
-    label: "CorreÃ§Ã£o",
+    label: "Correção",
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
       { title: "Leitura Ãptica", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
@@ -77,7 +75,7 @@ const groups: NavGroup[] = [
     ],
   },
   {
-    label: "ConfiguraÃ§Ãµes",
+    label: "Configurações",
     items: [
       { title: "Provas / Gabaritos", url: "/templates", icon: FolderOpen, matchPrefixes: ["/templates"] },
       { title: "Alunos", url: "/students", icon: Users, end: true },
@@ -87,7 +85,7 @@ const groups: NavGroup[] = [
   },
 ];
 
-/** Etapas do fluxo OMR â exibidas como sub-menu quando o usuÃ¡rio estÃ¡ dentro de /omr/* */
+/** Etapas do fluxo OMR â exibidas como sub-menu quando o usuário está¡ dentro de /omr/* */
 const omrSteps = [
   { title: "Matricular Alunos", segment: "enroll", icon: UserPlus },
   { title: "Gerar Gabaritos", segment: "generate", icon: FileText },
@@ -98,8 +96,7 @@ const omrSteps = [
 
 function isItemActive(pathname: string, item: NavItem): boolean {
   if (item.end) return pathname === item.url;
-  if (item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(p + "/")))
-    return true;
+  if (item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
   return pathname === item.url || pathname.startsWith(item.url + "/");
 }
 
@@ -122,14 +119,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-2">
-          {collapsed ? (
-            <FlemingLogo size="sm" />
-          ) : (
-            <FlemingLogo size="sm" />
-          )}
-          {!collapsed && (
-            <span className="text-sm font-semibold tracking-tight">Sistema Fleming</span>
-          )}
+          {collapsed ? <FlemingLogo size="sm" /> : <FlemingLogo size="sm" />}
+          {!collapsed && <span className="text-sm font-semibold tracking-tight">Sistema Fleming</span>}
         </div>
       </SidebarHeader>
 
