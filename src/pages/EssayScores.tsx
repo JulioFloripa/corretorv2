@@ -79,49 +79,57 @@ const EssayScores = () => {
 
   const loadStudents = async (templateId: string) => {
     setLoading(true);
-
-    const [{ data: enrolled }, { data: corrections }] = await Promise.all([
-      supabase
+    try {
+      const { data: enrolled, error: enrollErr } = await supabase
         .from("template_students")
         .select("student_id, students(id, name, student_id, campus)")
-        .eq("template_id", templateId),
-      supabase
+        .eq("template_id", templateId);
+
+      if (enrollErr) {
+        toast({ title: "Erro ao buscar alunos", description: enrollErr.message, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      const { data: corrections } = await supabase
         .from("corrections")
         .select("id, student_name, student_id, essay_score")
-        .eq("template_id", templateId),
-    ]);
+        .eq("template_id", templateId);
 
-    const corrByName = new Map<string, any>();
-    const corrByMatricula = new Map<string, any>();
-    for (const c of (corrections as any[]) || []) {
-      if (c.student_name) corrByName.set(c.student_name, c);
-      if (c.student_id) corrByMatricula.set(c.student_id, c);
+      const corrByName = new Map<string, any>();
+      const corrByMatricula = new Map<string, any>();
+      for (const c of (corrections as any[]) || []) {
+        if (c.student_name) corrByName.set(c.student_name, c);
+        if (c.student_id) corrByMatricula.set(c.student_id, c);
+      }
+
+      const rows: StudentEssay[] = ((enrolled as any[]) || [])
+        .map((e: any) => e.students)
+        .filter(Boolean)
+        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+        .map((s: any) => {
+          const corr =
+            (s.student_id && corrByMatricula.get(s.student_id)) ||
+            corrByName.get(s.name) ||
+            null;
+          return {
+            studentId: s.id,
+            studentName: s.name,
+            studentMatricula: s.student_id,
+            campus: s.campus,
+            correctionId: corr?.id || null,
+            essayScore: corr?.essay_score ?? null,
+            originalScore: corr?.essay_score ?? null,
+            dirty: false,
+          };
+        });
+
+      setStudents(rows);
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-
-    const rows: StudentEssay[] = ((enrolled as any[]) || [])
-      .map((e) => e.students)
-      .filter(Boolean)
-      .sort((a: any, b: any) => a.name.localeCompare(b.name))
-      .map((s: any) => {
-        const corr =
-          (s.student_id && corrByMatricula.get(s.student_id)) ||
-          corrByName.get(s.name) ||
-          null;
-
-        return {
-          studentId: s.id,
-          studentName: s.name,
-          studentMatricula: s.student_id,
-          campus: s.campus,
-          correctionId: corr?.id || null,
-          essayScore: corr?.essay_score ?? null,
-          originalScore: corr?.essay_score ?? null,
-          dirty: false,
-        };
-      });
-
-    setStudents(rows);
-    setLoading(false);
   };
 
   // ── Campuses disponíveis ──
