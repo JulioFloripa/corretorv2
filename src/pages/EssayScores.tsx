@@ -136,14 +136,6 @@ const EssayScores = () => {
             originalScore: corr?.essay_score ?? null,
             dirty: false,
           };
-
-      setStudents(rows);
-    } catch (err: any) {
-      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
         });
 
       setStudents(rows);
