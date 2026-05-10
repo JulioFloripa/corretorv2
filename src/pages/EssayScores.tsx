@@ -136,7 +136,6 @@ const EssayScores = () => {
             originalScore: corr?.essay_score ?? null,
             dirty: false,
           };
-        });
 
       setStudents(rows);
     } catch (err: any) {
