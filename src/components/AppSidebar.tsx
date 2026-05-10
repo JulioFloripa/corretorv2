@@ -65,6 +65,7 @@ const groups: NavGroup[] = [
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
       { title: "Leitura de Gabaritos", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
+      { title: "Notas de Redação", url: "/essay-scores", icon: PenLine, end: true },
     ],
   },
   {
@@ -73,7 +74,6 @@ const groups: NavGroup[] = [
       { title: "Histórico", url: "/history", icon: HistoryIcon, end: true },
       { title: "Análise de Desempenho", url: "/students/performance", icon: TrendingUp, end: true },
       { title: "Boletins", url: "/boletins", icon: BarChart3, matchPrefixes: ["/boletins"] },
-      { title: "Notas de Redação", url: "/essay-scores", icon: PenLine, end: true },
     ],
   },
   {
@@ -114,7 +114,6 @@ export function AppSidebar() {
   const location = useLocation();
   const pathname = location.pathname;
 
-  const isInsideOmr = pathname.startsWith("/omr");
   const currentTemplateId = extractOmrTemplateId(pathname);
 
   return (
@@ -145,11 +144,13 @@ export function AppSidebar() {
                         </NavLink>
                       </SidebarMenuButton>
 
-                      {/* Sub-menu contextual: etapas do OMR */}
-                      {isOmrParent && isInsideOmr && currentTemplateId && !collapsed && (
+                      {/* Sub-menu de etapas do OMR (sempre visível) */}
+                      {isOmrParent && !collapsed && (
                         <SidebarMenuSub>
                           {omrSteps.map((step) => {
-                            const stepUrl = `/omr/${step.segment}/${currentTemplateId}`;
+                            const stepUrl = currentTemplateId
+                              ? `/omr/${step.segment}/${currentTemplateId}`
+                              : "/omr";
                             const stepActive = pathname.startsWith(`/omr/${step.segment}/`);
                             const StepIcon = step.icon;
 
