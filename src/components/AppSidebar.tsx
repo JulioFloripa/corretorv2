@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   CheckCircle2,
   ScanLine,
+  PenLine,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +73,7 @@ const groups: NavGroup[] = [
       { title: "Histórico", url: "/history", icon: HistoryIcon, end: true },
       { title: "Análise de Desempenho", url: "/students/performance", icon: TrendingUp, end: true },
       { title: "Boletins", url: "/boletins", icon: BarChart3, matchPrefixes: ["/boletins"] },
+      { title: "Notas de Redação", url: "/essay-scores", icon: PenLine, end: true },
     ],
   },
   {
