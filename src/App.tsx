@@ -26,6 +26,7 @@ import OmrReview from "./pages/OmrReview";
 import OmrDone from "./pages/OmrDone";
 import CorrectionEdit from "./pages/CorrectionEdit";
 import NotFound from "./pages/NotFound";
+import EssayScores from "./pages/EssayScores";
 import AppLayout from "./components/AppLayout";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/students/performance" element={<StudentPerformance />} />
             <Route path="/students" element={<Students />} />
             <Route path="/classes" element={<Classes />} />
+          <Route path="/essay-scores" element={<EssayScores />} />
             <Route path="/omr" element={<OmrHub />} />
             <Route path="/omr/enroll/:templateId" element={<OmrEnroll />} />
             <Route path="/omr/generate/:templateId" element={<OmrGenerate />} />
