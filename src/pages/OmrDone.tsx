@@ -230,7 +230,7 @@ const OmrDone = () => {
 
         const { data: existing } = await supabase
           .from("corrections")
-          .select("id")
+          .select("id, essay_score")
           .eq("template_id", templateId)
           .eq("student_name", student.name)
           .maybeSingle();
@@ -272,6 +272,12 @@ const OmrDone = () => {
             is_correct: isCorrect,
             points_earned: pointsEarned,
           });
+        }
+
+        // Integrar nota de redação ao total (se existir)
+        const existingEssay = existing?.essay_score ?? null;
+        if (existingEssay != null) {
+          totalScore += existingEssay;
         }
 
         let correctionId: string;
