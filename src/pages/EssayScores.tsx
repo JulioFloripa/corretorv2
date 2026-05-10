@@ -80,21 +80,37 @@ const EssayScores = () => {
   const loadStudents = async (templateId: string) => {
     setLoading(true);
     try {
-      const { data: enrolled, error: enrollErr } = await supabase
+      // 1. Buscar IDs dos alunos matriculados nesta prova
+      const { data: enrollments, error: enrollErr } = await supabase
         .from("template_students")
-        .select("student_id, students(id, name, student_id, campus)")
+        .select("student_id")
         .eq("template_id", templateId);
 
       if (enrollErr) {
-        toast({ title: "Erro ao buscar alunos", description: enrollErr.message, variant: "destructive" });
+        toast({ title: "Erro ao buscar matrículas", description: enrollErr.message, variant: "destructive" });
         setLoading(false);
         return;
       }
 
-      const { data: corrections } = await supabase
-        .from("corrections")
-        .select("id, student_name, student_id, essay_score")
-        .eq("template_id", templateId);
+      const studentIds = (enrollments || []).map((e: any) => e.student_id).filter(Boolean);
+
+      if (studentIds.length === 0) {
+        setStudents([]);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Buscar dados dos alunos separadamente (sem FK join)
+      const [{ data: studentsData }, { data: corrections }] = await Promise.all([
+        supabase
+          .from("students")
+          .select("id, name, student_id, campus")
+          .in("id", studentIds),
+        supabase
+          .from("corrections")
+          .select("id, student_name, student_id, essay_score")
+          .eq("template_id", templateId),
+      ]);
 
       const corrByName = new Map<string, any>();
       const corrByMatricula = new Map<string, any>();
@@ -103,9 +119,7 @@ const EssayScores = () => {
         if (c.student_id) corrByMatricula.set(c.student_id, c);
       }
 
-      const rows: StudentEssay[] = ((enrolled as any[]) || [])
-        .map((e: any) => e.students)
-        .filter(Boolean)
+      const rows: StudentEssay[] = ((studentsData as any[]) || [])
         .sort((a: any, b: any) => a.name.localeCompare(b.name))
         .map((s: any) => {
           const corr =
@@ -122,6 +136,15 @@ const EssayScores = () => {
             originalScore: corr?.essay_score ?? null,
             dirty: false,
           };
+        });
+
+      setStudents(rows);
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
         });
 
       setStudents(rows);
