@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, Upload, FileImage, X, Loader2, CheckCircle2, AlertCircle, Pencil } from "lucide-react";
+import { Upload, FileImage, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { uploadScansToBucket, scanBatch } from "@/lib/omr-client";
+import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
 
 const ACCEPTED = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
