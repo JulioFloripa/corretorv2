@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, Upload, FileImage, X, Loader2, CheckCircle2, AlertCircle, Pencil } from "lucide-react";
+import { Upload, FileImage, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { uploadScansToBucket, scanBatch } from "@/lib/omr-client";
+import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
 
 const ACCEPTED = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
@@ -65,22 +66,18 @@ const OmrUpload = () => {
     }
   };
 
+  if (!templateId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <OmrStepHeader step="upload" title="Enviar Scans" />
+        <OmrEmptyState stepLabel="Enviar Scans" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/omr")}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Enviar Scans</h1>
-            <p className="text-sm text-muted-foreground">{templateName}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/templates/${templateId}`)}>
-            <Pencil className="h-4 w-4 mr-1" /> Editar gabarito
-          </Button>
-        </div>
-      </header>
+      <OmrStepHeader step="upload" title={templateName ? `Enviar Scans · ${templateName}` : "Enviar Scans"} templateId={templateId} />
 
       <main className="container mx-auto px-4 py-8 max-w-3xl space-y-4">
         <Card>

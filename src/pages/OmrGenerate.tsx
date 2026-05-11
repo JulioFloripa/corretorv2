@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, FileText, Download, Loader2, AlertCircle, CheckCircle2, Pencil } from "lucide-react";
+import { FileText, Download, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { generateBatch } from "@/lib/omr-client";
+import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
 
 const OmrGenerate = () => {
   const navigate = useNavigate();
@@ -53,22 +54,18 @@ const OmrGenerate = () => {
     }
   };
 
+  if (!templateId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <OmrStepHeader step="generate" title="Gerar Gabaritos" />
+        <OmrEmptyState stepLabel="Gerar Gabaritos" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/omr")}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Gerar Gabaritos</h1>
-            <p className="text-sm text-muted-foreground">{templateName}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/templates/${templateId}`)}>
-            <Pencil className="h-4 w-4 mr-1" /> Editar gabarito
-          </Button>
-        </div>
-      </header>
+      <OmrStepHeader step="generate" title={templateName ? `Gerar Gabaritos · ${templateName}` : "Gerar Gabaritos"} templateId={templateId} />
 
       <main className="container mx-auto px-4 py-8 max-w-3xl space-y-4">
         <Card>

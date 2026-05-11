@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Search, UserPlus, UserMinus, Save, Pencil, GraduationCap } from "lucide-react";
+import { Search, UserPlus, UserMinus, Save, GraduationCap } from "lucide-react";
+import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
 
 const CAMPUSES = ["TODAS", "CHAPECÓ", "CRICIÚMA", "FLORIANÓPOLIS", "ON-LINE", "PORTO ALEGRE"];
 
@@ -167,22 +168,18 @@ const OmrEnroll = () => {
   const dirty = enrolledIds.size !== originalEnrolled.size ||
     [...enrolledIds].some((id) => !originalEnrolled.has(id));
 
+  if (!templateId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <OmrStepHeader step="enroll" title="Matricular Alunos" />
+        <OmrEmptyState stepLabel="Matricular Alunos" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/omr")}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Matricular Alunos</h1>
-            <p className="text-sm text-muted-foreground">{templateName}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/templates/${templateId}`)}>
-            <Pencil className="h-4 w-4 mr-1" /> Editar gabarito
-          </Button>
-        </div>
-      </header>
+      <OmrStepHeader step="enroll" title={templateName ? `Matricular Alunos · ${templateName}` : "Matricular Alunos"} templateId={templateId} />
 
       <main className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Liberação rápida por turma */}

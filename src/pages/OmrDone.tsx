@@ -13,7 +13,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ArrowLeft,
   CheckCircle2,
   Calculator,
   Loader2,
@@ -31,6 +30,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { calculateSummationScore, calculateOpenNumericScore } from "@/lib/ufsc-scoring";
+import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
 
 type StudentStatus = "approved" | "problem" | "discarded" | "missing";
 
@@ -348,22 +348,25 @@ const OmrDone = () => {
     return <Badge variant={variants[status]} className="text-xs">{label}</Badge>;
   };
 
+  if (!templateId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <OmrStepHeader step="done" title="Resumo / Notas" />
+        <OmrEmptyState stepLabel="Resumo / Notas" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/omr")}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Resumo da Prova</h1>
-            <p className="text-sm text-muted-foreground">{templateName}</p>
-          </div>
+      <OmrStepHeader step="done" title={templateName ? `Resumo da Prova · ${templateName}` : "Resumo da Prova"} templateId={templateId} />
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-2 flex justify-end">
           <Button variant="outline" size="sm" onClick={() => { refresh(); toast({ title: "Dados atualizados" }); }}>
             <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
           </Button>
         </div>
-      </header>
+      </div>
 
       <main className="container mx-auto px-4 py-8 max-w-5xl space-y-4">
         {loading ? (

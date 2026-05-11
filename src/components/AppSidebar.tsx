@@ -150,8 +150,10 @@ export function AppSidebar() {
                           {omrSteps.map((step) => {
                             const stepUrl = currentTemplateId
                               ? `/omr/${step.segment}/${currentTemplateId}`
-                              : "/omr";
-                            const stepActive = pathname.startsWith(`/omr/${step.segment}/`);
+                              : `/omr/${step.segment}`;
+                            const stepActive =
+                              pathname === `/omr/${step.segment}` ||
+                              pathname.startsWith(`/omr/${step.segment}/`);
                             const StepIcon = step.icon;
 
                             return (
