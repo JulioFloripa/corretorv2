@@ -64,7 +64,7 @@ const groups: NavGroup[] = [
     label: "Correção",
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
-      { title: "Leitura de Gabaritos", url: "/omr", icon: ScanLine, matchPrefixes: ["/omr"] },
+      { title: "Leitura de Gabaritos", url: "/omr/done", icon: ScanLine, matchPrefixes: ["/omr"] },
       { title: "Notas de Redação", url: "/essay-scores", icon: PenLine, end: true },
     ],
   },
@@ -133,12 +133,15 @@ export function AppSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => {
                   const active = isItemActive(pathname, item);
-                  const isOmrParent = item.url === "/omr";
+                  const isOmrParent = item.matchPrefixes?.includes("/omr") ?? false;
 
                   return (
                     <SidebarMenuItem key={item.url}>
                       <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
-                        <NavLink to={item.url} end={item.end}>
+                        <NavLink
+                          to={isOmrParent && currentTemplateId ? `/omr/done/${currentTemplateId}` : item.url}
+                          end={item.end}
+                        >
                           <item.icon className="h-4 w-4" />
                           {!collapsed && <span>{item.title}</span>}
                         </NavLink>
