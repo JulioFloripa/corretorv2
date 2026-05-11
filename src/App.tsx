@@ -27,6 +27,7 @@ import OmrDone from "./pages/OmrDone";
 import CorrectionEdit from "./pages/CorrectionEdit";
 import NotFound from "./pages/NotFound";
 import EssayScores from "./pages/EssayScores";
+import ResetPassword from "./pages/ResetPassword";
 import AppLayout from "./components/AppLayout";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/templates" element={<Templates />} />
