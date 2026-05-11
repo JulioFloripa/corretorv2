@@ -58,10 +58,15 @@ const App = () => (
             <Route path="/classes" element={<Classes />} />
           <Route path="/essay-scores" element={<EssayScores />} />
             <Route path="/omr" element={<OmrHub />} />
+            <Route path="/omr/enroll" element={<OmrEnroll />} />
             <Route path="/omr/enroll/:templateId" element={<OmrEnroll />} />
+            <Route path="/omr/generate" element={<OmrGenerate />} />
             <Route path="/omr/generate/:templateId" element={<OmrGenerate />} />
+            <Route path="/omr/upload" element={<OmrUpload />} />
             <Route path="/omr/upload/:templateId" element={<OmrUpload />} />
+            <Route path="/omr/review" element={<OmrReview />} />
             <Route path="/omr/review/:templateId" element={<OmrReview />} />
+            <Route path="/omr/done" element={<OmrDone />} />
             <Route path="/omr/done/:templateId" element={<OmrDone />} />
             <Route path="/corrections/:id/edit" element={<CorrectionEdit />} />
           </Route>
