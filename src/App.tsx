@@ -27,6 +27,7 @@ import OmrDone from "./pages/OmrDone";
 import CorrectionEdit from "./pages/CorrectionEdit";
 import NotFound from "./pages/NotFound";
 import EssayScores from "./pages/EssayScores";
+import Help from "./pages/Help";
 import ResetPassword from "./pages/ResetPassword";
 import AppLayout from "./components/AppLayout";
 
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/students" element={<Students />} />
             <Route path="/classes" element={<Classes />} />
           <Route path="/essay-scores" element={<EssayScores />} />
+          <Route path="/help" element={<Help />} />
             <Route path="/omr" element={<OmrHub />} />
             <Route path="/omr/enroll" element={<OmrEnroll />} />
             <Route path="/omr/enroll/:templateId" element={<OmrEnroll />} />
