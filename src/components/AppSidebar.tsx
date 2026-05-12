@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ScanLine,
   PenLine,
+  HelpCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,6 +181,21 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+
+      <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Ajuda">
+                    <NavLink to="/help">
+                      <HelpCircle className="h-4 w-4" />
+                      {!collapsed && <span>Ajuda</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
       <SidebarFooter className="border-t p-2">
         <SidebarMenu>
