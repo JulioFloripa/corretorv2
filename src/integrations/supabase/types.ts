@@ -50,6 +50,24 @@ export type Database = {
         }
         Relationships: []
       }
+      campuses: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       classes: {
         Row: {
           campus: string
@@ -323,6 +341,7 @@ export type Database = {
       students: {
         Row: {
           campus: string | null
+          campus_id: string | null
           class_id: string | null
           created_at: string
           email: string | null
@@ -335,6 +354,7 @@ export type Database = {
         }
         Insert: {
           campus?: string | null
+          campus_id?: string | null
           class_id?: string | null
           created_at?: string
           email?: string | null
@@ -347,6 +367,7 @@ export type Database = {
         }
         Update: {
           campus?: string | null
+          campus_id?: string | null
           class_id?: string | null
           created_at?: string
           email?: string | null
@@ -358,6 +379,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "students_campus_id_fkey"
+            columns: ["campus_id"]
+            isOneToOne: false
+            referencedRelation: "campuses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "students_class_id_fkey"
             columns: ["class_id"]
@@ -443,7 +471,9 @@ export type Database = {
       }
       templates: {
         Row: {
+          campus_id: string | null
           created_at: string | null
+          created_by: string | null
           description: string | null
           exam_type: string
           id: string
@@ -451,9 +481,12 @@ export type Database = {
           total_questions: number
           updated_at: string | null
           user_id: string
+          visibility: string
         }
         Insert: {
+          campus_id?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           exam_type: string
           id?: string
@@ -461,9 +494,12 @@ export type Database = {
           total_questions: number
           updated_at?: string | null
           user_id: string
+          visibility?: string
         }
         Update: {
+          campus_id?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           exam_type?: string
           id?: string
@@ -471,8 +507,52 @@ export type Database = {
           total_questions?: number
           updated_at?: string | null
           user_id?: string
+          visibility?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "templates_campus_id_fkey"
+            columns: ["campus_id"]
+            isOneToOne: false
+            referencedRelation: "campuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          campus_id: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          campus_id?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          campus_id?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_campus_id_fkey"
+            columns: ["campus_id"]
+            isOneToOne: false
+            referencedRelation: "campuses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
