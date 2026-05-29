@@ -84,11 +84,11 @@ const OmrDone = () => {
     if (!templateId) return;
     setLoading(true);
 
-    const [{ data: tpl }, { data: enrolled }, { data: subs }] = await Promise.all([
+    const [{ data: tpl }, { data: enrollments }, { data: subs }] = await Promise.all([
       supabase.from("templates").select("name").eq("id", templateId).maybeSingle(),
       supabase
         .from("template_students")
-        .select("student_id, students(id, name, student_id, campus)")
+        .select("student_id")
         .eq("template_id", templateId),
       supabase
         .from("scan_submissions")
@@ -98,10 +98,17 @@ const OmrDone = () => {
 
     setTemplateName(tpl?.name || "");
 
-    const students: EnrolledStudent[] = ((enrolled as any[]) || [])
-      .map((e: any) => e.students)
-      .filter(Boolean)
-      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+    const studentIds = ((enrollments as any[]) || []).map((e: any) => e.student_id).filter(Boolean);
+
+    let students: EnrolledStudent[] = [];
+    if (studentIds.length > 0) {
+      const { data: studentsData } = await supabase
+        .from("students")
+        .select("id, name, student_id, campus")
+        .in("id", studentIds);
+      students = ((studentsData as any[]) || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    }
+
     setEnrolledStudents(students);
     setSubmissions((subs as any[]) || []);
     setLoading(false);
