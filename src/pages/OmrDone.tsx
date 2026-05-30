@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -74,6 +75,11 @@ const OmrDone = () => {
 
   const [calculating, setCalculating] = useState(false);
   const [calcResult, setCalcResult] = useState<{ created: number; skipped: number; updated: number } | null>(null);
+
+  // ──── Migração de cartões para a prova correta ────
+  type MigrationGroup = { templateId: string; templateName: string; count: number; subIds: string[] };
+  const [migrationGroups, setMigrationGroups] = useState<MigrationGroup[] | null>(null);
+  const [migrating, setMigrating] = useState(false);
 
   useEffect(() => {
     if (!templateId) return;
@@ -197,7 +203,32 @@ const OmrDone = () => {
     });
   }, [studentRows, search, statusFilter]);
 
-  // ──── Calcular notas (mesmo código original) ────
+  // ──── Migrar cartões para a prova correta e recalcular ────
+  const confirmMigration = async () => {
+    if (!migrationGroups || !templateId) return;
+    setMigrating(true);
+    try {
+      for (const group of migrationGroups) {
+        await supabase
+          .from("scan_submissions")
+          .update({ template_id: group.templateId })
+          .in("id", group.subIds);
+      }
+      const names = migrationGroups.map((g) => g.templateName).join(", ");
+      toast({
+        title: "Cartões migrados",
+        description: `${migrationGroups.reduce((a, g) => a + g.count, 0)} cartão(s) movido(s) para: ${names}. Acesse essas provas e clique em "Calcular notas".`,
+      });
+      setMigrationGroups(null);
+      await refresh();
+    } catch (err: any) {
+      toast({ title: "Erro na migração", description: err.message, variant: "destructive" });
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  // ──── Calcular notas ────
   const calculateGrades = async () => {
     if (!templateId) return;
     setCalculating(true);
@@ -206,6 +237,39 @@ const OmrDone = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
+
+      // ── Detectar cartões que pertencem a outra prova (QR code soberano) ──
+      const { data: subsCheck } = await supabase
+        .from("scan_submissions")
+        .select("id, qr_data")
+        .eq("template_id", templateId)
+        .eq("discarded", false);
+
+      const misfits = ((subsCheck as any[]) || []).filter(
+        (s: any) => s.qr_data?.template_id && s.qr_data.template_id !== templateId
+      );
+
+      if (misfits.length > 0) {
+        const byTemplate = new Map<string, string[]>();
+        misfits.forEach((s: any) => {
+          const tid = s.qr_data.template_id as string;
+          if (!byTemplate.has(tid)) byTemplate.set(tid, []);
+          byTemplate.get(tid)!.push(s.id);
+        });
+        const { data: tpls } = await supabase
+          .from("templates")
+          .select("id, name")
+          .in("id", [...byTemplate.keys()]);
+        const groups: MigrationGroup[] = [...byTemplate.entries()].map(([tid, ids]) => ({
+          templateId: tid,
+          templateName: ((tpls as any[]) || []).find((t: any) => t.id === tid)?.name || tid.slice(0, 8) + "…",
+          count: ids.length,
+          subIds: ids,
+        }));
+        setMigrationGroups(groups);
+        setCalculating(false);
+        return;
+      }
 
       const [{ data: questions }, { data: subs }] = await Promise.all([
         supabase.from("template_questions").select("*").eq("template_id", templateId).order("question_number"),
@@ -585,6 +649,44 @@ const OmrDone = () => {
           </>
         )}
       </main>
+
+      {/* ══════ Dialog de migração de cartões ══════ */}
+      <AlertDialog open={!!migrationGroups} onOpenChange={(o) => { if (!o && !migrating) setMigrationGroups(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Cartões pertencem a outra prova
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                O QR Code destes cartões indica que foram gerados para uma prova diferente.
+                A prova de origem é a fonte de verdade — os cartões serão migrados automaticamente.
+              </p>
+              <div className="rounded-md border bg-muted/40 p-3 space-y-1">
+                {(migrationGroups || []).map((g) => (
+                  <div key={g.templateId} className="text-sm">
+                    <strong>{g.count} cartão(s)</strong> → <strong>{g.templateName}</strong>
+                  </div>
+                ))}
+              </div>
+              <p className="font-semibold text-destructive">
+                Esta ação é irreversível. Após a migração, acesse a prova de destino para calcular as notas.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={migrating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmMigration(); }}
+              disabled={migrating}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {migrating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Migrando…</> : "Confirmar migração"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
