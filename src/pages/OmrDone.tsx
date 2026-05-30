@@ -83,7 +83,7 @@ const OmrDone = () => {
 
   useEffect(() => {
     if (!templateId) return;
-    refresh();
+    refresh().then(() => calculateGrades());
   }, [templateId]);
 
   const refresh = async () => {
@@ -280,7 +280,7 @@ const OmrDone = () => {
           .eq("discarded", false),
       ]);
 
-      if (!questions || !subs || subs.length === 0) throw new Error("Nada para calcular");
+      if (!questions || !subs || subs.length === 0) return;
 
       const approvedSubs = (subs as any[]).filter((s) => {
         if (!s.student_id) return false;
