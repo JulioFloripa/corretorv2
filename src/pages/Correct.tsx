@@ -198,7 +198,11 @@ const Correct = () => {
 
     for (const row of parsedData) {
       const studentName = (row.Nome || row.nome || row.NOME || "").toString().trim();
-      const studentId = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || "").toString().trim();
+      const rawEmail = (row.Email || row.email || row.EMAIL || row["Email Address"] || "").toString().trim();
+      const emailMatricula = rawEmail.toLowerCase().endsWith("@flemingeducacao.com.br")
+        ? rawEmail.split("@")[0]
+        : "";
+      const studentId = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || emailMatricula || "").toString().trim();
       
       if (!studentId || !studentName || seen.has(studentId)) continue;
       seen.add(studentId);
@@ -391,7 +395,11 @@ const Correct = () => {
             const index = batchStart + batchIdx;
             try {
               let studentName = (row.Nome || row.nome || row.NOME || "").toString().trim();
-              const studentId = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || "").toString().trim();
+              const rawEmail = (row.Email || row.email || row.EMAIL || row["Email Address"] || "").toString().trim();
+              const emailMatricula = rawEmail.toLowerCase().endsWith("@flemingeducacao.com.br")
+                ? rawEmail.split("@")[0]
+                : "";
+              const studentId = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || emailMatricula || "").toString().trim();
               const studentCampus = (row.Sede || row.sede || row.SEDE || "").toString().trim() || null;
               const studentLanguage = (row["Idioma escolhido"] || row["idioma escolhido"] || row["Lingua estrangeira"] || row["lingua estrangeira"] || "").toString().trim() || null;
               
