@@ -264,7 +264,7 @@ const Classes = () => {
             <SelectTrigger className="md:w-64"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="TODAS">Todas as sedes</SelectItem>
-              {CAMPUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {campuses.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
 
