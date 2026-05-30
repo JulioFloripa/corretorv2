@@ -24,6 +24,7 @@ import OmrGenerate from "./pages/OmrGenerate";
 import OmrUpload from "./pages/OmrUpload";
 import OmrReview from "./pages/OmrReview";
 import OmrDone from "./pages/OmrDone";
+import Correcao from "./pages/Correcao";
 import CorrectionEdit from "./pages/CorrectionEdit";
 import NotFound from "./pages/NotFound";
 import EssayScores from "./pages/EssayScores";
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="/omr/upload/:templateId" element={<OmrUpload />} />
             <Route path="/omr/review" element={<OmrReview />} />
             <Route path="/omr/review/:templateId" element={<OmrReview />} />
+            <Route path="/omr/correcao/:templateId" element={<Correcao />} />
             <Route path="/omr/done" element={<OmrDone />} />
             <Route path="/omr/done/:templateId" element={<OmrDone />} />
             <Route path="/corrections/:id/edit" element={<CorrectionEdit />} />
