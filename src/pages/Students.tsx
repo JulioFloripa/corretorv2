@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useCampuses } from "@/hooks/use-campuses";
 import { ArrowLeft, Plus, Pencil, Trash2, Search, Users, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import FlemingLogo from "@/components/FlemingLogo";
 
@@ -32,11 +33,11 @@ interface Student {
 }
 
 const FOREIGN_LANGUAGES = ["Inglês", "Espanhol"];
-const CAMPUSES = ["CHAPECÓ", "CRICIÚMA", "FLORIANÓPOLIS", "ON-LINE", "PORTO ALEGRE"];
 
 const Students = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { campuses } = useCampuses();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -333,7 +334,7 @@ const Students = () => {
                   <SelectValue placeholder="Selecione a sede" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CAMPUSES.map((c) => (
+                  {campuses.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>

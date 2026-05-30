@@ -12,8 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, UserPlus, UserMinus, Save, GraduationCap } from "lucide-react";
 import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
-
-const CAMPUSES = ["TODAS", "CHAPECÓ", "CRICIÚMA", "FLORIANÓPOLIS", "ON-LINE", "PORTO ALEGRE"];
+import { useCampuses } from "@/hooks/use-campuses";
 
 interface Student {
   id: string;
@@ -34,6 +33,7 @@ const OmrEnroll = () => {
   const navigate = useNavigate();
   const { templateId } = useParams<{ templateId: string }>();
   const { toast } = useToast();
+  const { campuses } = useCampuses();
 
   const [templateName, setTemplateName] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
@@ -253,7 +253,8 @@ const OmrEnroll = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CAMPUSES.map((c) => (
+                  <SelectItem value="TODAS">TODAS</SelectItem>
+                  {campuses.map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2, Users, Search, UserPlus } from "lucide-react";
 
-const CAMPUSES = ["CHAPECÓ", "CRICIÚMA", "FLORIANÓPOLIS", "ON-LINE", "PORTO ALEGRE"];
+import { useCampuses } from "@/hooks/use-campuses";
 
 interface ClassRow {
   id: string;
@@ -32,6 +32,7 @@ interface Student {
 
 const Classes = () => {
   const { toast } = useToast();
+  const { campuses } = useCampuses();
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ const Classes = () => {
   // create/edit
   const [editing, setEditing] = useState<ClassRow | null>(null);
   const [openForm, setOpenForm] = useState(false);
-  const [formCampus, setFormCampus] = useState("CHAPECÓ");
+  const [formCampus, setFormCampus] = useState("");
   const [formName, setFormName] = useState("");
   const [formYear, setFormYear] = useState<string>(String(new Date().getFullYear()));
 
@@ -78,7 +79,7 @@ const Classes = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setFormCampus("CHAPECÓ");
+    setFormCampus(campuses[0] ?? "");
     setFormName("");
     setFormYear(String(new Date().getFullYear()));
     setOpenForm(true);
@@ -223,7 +224,7 @@ const Classes = () => {
                 <Select value={formCampus} onValueChange={setFormCampus}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CAMPUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {campuses.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
