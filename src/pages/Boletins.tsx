@@ -101,7 +101,11 @@ const Boletins = () => {
                 <Card
                   key={boletim.id}
                   className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
-                  onClick={() => navigate(boletim.exam_type === "acafe_criciuma" ? "/boletins/acafe" : "/boletins/acafe")}
+                  onClick={() => {
+                    const type = boletim.exam_type;
+                    if (type === "ufsc") navigate("/boletins/ufsc");
+                    else navigate("/boletins/acafe");
+                  }}
                 >
                   <CardHeader>
                     <div className="flex items-center gap-3">
@@ -160,26 +164,6 @@ const Boletins = () => {
                 </Card>
               )}
 
-              <Card className="border-dashed opacity-60">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <Users className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-muted-foreground">Em breve</CardTitle>
-                      <CardDescription>
-                        Outros formatos de boletim serão adicionados
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    ENEM, UFSC, provas internas e mais...
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           )}
         </div>

@@ -13,6 +13,7 @@ import History from "./pages/History";
 import Reports from "./pages/Reports";
 import Boletins from "./pages/Boletins";
 import BoletimAcafe from "./pages/BoletimAcafe";
+import BoletimUfsc from "./pages/BoletimUfsc";
 import Disciplines from "./pages/Disciplines";
 import StudentEdit from "./pages/StudentEdit";
 import StudentPerformance from "./pages/StudentPerformance";
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/reports" element={<Reports />} />
             <Route path="/boletins" element={<Boletins />} />
             <Route path="/boletins/acafe" element={<BoletimAcafe />} />
+            <Route path="/boletins/ufsc" element={<BoletimUfsc />} />
             <Route path="/disciplines" element={<Disciplines />} />
             <Route path="/students/edit" element={<StudentEdit />} />
             <Route path="/students/performance" element={<StudentPerformance />} />
