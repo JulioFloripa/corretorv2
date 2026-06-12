@@ -109,11 +109,35 @@ export function calculateOpenNumericScore(
 /**
  * Question types supported by the system
  */
-export type QuestionType = 'objective' | 'summation' | 'open_numeric' | 'discursive';
+export type QuestionType = 'objective' | 'objective_2' | 'objective_3' | 'objective_4' | 'true_false' | 'summation' | 'open_numeric' | 'discursive';
 
 export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
-  objective: 'Objetiva',
+  objective: 'Objetiva (A-E)',
+  objective_4: 'Objetiva (A-D)',
+  objective_3: 'Objetiva (A-C)',
+  objective_2: 'Objetiva (A-B)',
+  true_false: 'Verdadeiro/Falso',
   summation: 'Somatório',
   open_numeric: 'Aberta (numérica)',
   discursive: 'Discursiva',
 };
+
+/**
+ * Returns the answer alternatives for a given question type.
+ */
+export function getObjectiveAlternatives(questionType: string): string[] {
+  switch (questionType) {
+    case 'true_false': return ['V', 'F'];
+    case 'objective_2': return ['A', 'B'];
+    case 'objective_3': return ['A', 'B', 'C'];
+    case 'objective_4': return ['A', 'B', 'C', 'D'];
+    default: return ['A', 'B', 'C', 'D', 'E'];
+  }
+}
+
+/**
+ * Returns true for any question type that uses letter/letter alternatives (not numeric).
+ */
+export function isObjectiveLike(questionType: string): boolean {
+  return ['objective', 'objective_2', 'objective_3', 'objective_4', 'true_false'].includes(questionType);
+}

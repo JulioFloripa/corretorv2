@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Loader2, AlertCircle } from "lucide-react";
 import { getScanSignedUrl } from "@/lib/omr-client";
 import OmrStepHeader from "@/components/omr/OmrStepHeader";
+import { getObjectiveAlternatives, isObjectiveLike } from "@/lib/ufsc-scoring";
 
 // ─── tipos ──────────────────────────────────────────────────
 
@@ -514,13 +515,13 @@ const Correcao = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {editingQ?.question_type === "objective" && (
+          {isObjectiveLike(editingQ?.question_type || "objective") && (
             <RadioGroup
               value={editValue}
               onValueChange={setEditValue}
               className="grid grid-cols-3 gap-2"
             >
-              {OBJECTIVE_OPTIONS.map((opt) => (
+              {getObjectiveAlternatives(editingQ?.question_type || "objective").map((opt) => (
                 <Label
                   key={opt}
                   className="flex items-center gap-2 border rounded-md p-3 cursor-pointer hover:border-primary"

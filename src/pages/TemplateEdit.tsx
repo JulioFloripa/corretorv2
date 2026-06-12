@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, Pencil } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { recalculateByTemplate } from "@/lib/recalculate";
 import { EXAM_PRESETS, generatePresetQuestions } from "@/lib/exam-presets";
-import { QUESTION_TYPE_LABELS, type QuestionType } from "@/lib/ufsc-scoring";
+import { QUESTION_TYPE_LABELS, getObjectiveAlternatives, type QuestionType } from "@/lib/ufsc-scoring";
 import SummationAnswerEditor from "@/components/template/SummationAnswerEditor";
 
 interface TemplateQuestion {
@@ -38,6 +39,8 @@ const TemplateEdit = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [template, setTemplate] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [questions, setQuestions] = useState<TemplateQuestion[]>([]);
   const [disciplines, setDisciplines] = useState<DisciplineOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +84,8 @@ const TemplateEdit = () => {
     }
 
     setTemplate(templateData);
+    setEditName(templateData.name || "");
+    setEditDescription(templateData.description || "");
 
     const { data: questionsData, error: questionsError } = await supabase
       .from("template_questions")
@@ -137,6 +142,19 @@ const TemplateEdit = () => {
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+
+    // Salvar metadados do template (nome e descrição)
+    if (editName.trim()) {
+      const { error: metaError } = await supabase
+        .from("templates")
+        .update({ name: editName.trim(), description: editDescription.trim() || null })
+        .eq("id", id);
+      if (metaError) {
+        toast({ variant: "destructive", title: "Erro ao salvar dados do gabarito", description: metaError.message });
+        return;
+      }
+      setTemplate((prev: any) => ({ ...prev, name: editName.trim(), description: editDescription.trim() || null }));
+    }
 
     // Deletar questões existentes
     await supabase.from("template_questions").delete().eq("template_id", id);
@@ -217,6 +235,14 @@ const TemplateEdit = () => {
         return <Badge variant="outline" className="text-[10px] px-1">NUM</Badge>;
       case "discursive":
         return <Badge className="text-[10px] px-1 bg-accent text-accent-foreground">DISC</Badge>;
+      case "true_false":
+        return <Badge variant="secondary" className="text-[10px] px-1">V/F</Badge>;
+      case "objective_2":
+        return <Badge variant="outline" className="text-[10px] px-1">2alt</Badge>;
+      case "objective_3":
+        return <Badge variant="outline" className="text-[10px] px-1">3alt</Badge>;
+      case "objective_4":
+        return <Badge variant="outline" className="text-[10px] px-1">4alt</Badge>;
       default:
         return null;
     }
@@ -259,7 +285,27 @@ const TemplateEdit = () => {
         return (
           <span className="text-xs text-muted-foreground italic">Manual (0-5)</span>
         );
-      default:
+      case "true_false":
+        return (
+          <Select
+            value={question.correct_answer}
+            onValueChange={(value) => updateQuestion(index, { correct_answer: value })}
+          >
+            <SelectTrigger className="h-8 w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="V">V</SelectItem>
+              <SelectItem value="F">F</SelectItem>
+            </SelectContent>
+          </Select>
+        );
+      default: {
+        // Objective and objective_N variants: use preset alternatives or derive from question_type
+        const presetAlts = EXAM_PRESETS[template?.exam_type]?.alternatives;
+        const alternatives = presetAlts && presetAlts.length > 0
+          ? presetAlts
+          : getObjectiveAlternatives(question.question_type);
         return (
           <div className="flex items-center gap-1">
             {isVariant && (
@@ -275,13 +321,14 @@ const TemplateEdit = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(EXAM_PRESETS[template?.exam_type]?.alternatives || ["A", "B", "C", "D", "E"]).map((alt) => (
+                {alternatives.map((alt) => (
                   <SelectItem key={alt} value={alt}>{alt}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         );
+      }
     }
   };
 
@@ -293,21 +340,32 @@ const TemplateEdit = () => {
     );
   }
 
-  const isUfscType = template?.exam_type === "ufsc";
+  const showTypeColumn = ["ufsc", "custom", "multiple_choice"].includes(template?.exam_type || "");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-1">
             <Button variant="ghost" size="sm" onClick={() => navigate("/templates")}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div>
-              <h1 className="text-xl font-bold">{template?.name}</h1>
-              <p className="text-sm text-muted-foreground">
-                {template?.total_questions} questões • {template?.exam_type}
-              </p>
+            <div className="flex-1 max-w-lg space-y-1">
+              <div className="flex items-center gap-2">
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <Input
+                  className="h-8 text-base font-bold border-dashed bg-transparent px-2 focus-visible:border-solid"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Nome do gabarito"
+                />
+              </div>
+              <Input
+                className="h-7 text-xs border-dashed bg-transparent px-2 text-muted-foreground focus-visible:border-solid"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Descrição (opcional)"
+              />
             </div>
           </div>
           <Button onClick={handleSaveQuestions}>
@@ -327,14 +385,14 @@ const TemplateEdit = () => {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-2 font-medium text-muted-foreground w-16">#</th>
-                  {isUfscType && (
+                  {showTypeColumn && (
                     <th className="text-left py-2 px-2 font-medium text-muted-foreground w-28">Tipo</th>
                   )}
                   <th className="text-left py-2 px-2 font-medium text-muted-foreground w-24">Resposta</th>
                   <th className="text-left py-2 px-2 font-medium text-muted-foreground">Disciplina</th>
                   <th className="text-left py-2 px-2 font-medium text-muted-foreground">Conteúdo</th>
                   <th className="text-left py-2 px-2 font-medium text-muted-foreground w-20">Pontos</th>
-                  {isUfscType && (
+                  {showTypeColumn && (
                     <th className="text-left py-2 px-2 font-medium text-muted-foreground w-16">Props</th>
                   )}
                 </tr>
@@ -352,10 +410,10 @@ const TemplateEdit = () => {
                       <td className="py-2 px-2 font-medium">
                         <div className="flex items-center gap-1">
                           {isSecondVariant ? "" : question.question_number}
-                          {!isUfscType && getQuestionTypeBadge(question.question_type)}
+                          {!showTypeColumn && getQuestionTypeBadge(question.question_type)}
                         </div>
                       </td>
-                      {isUfscType && (
+                      {showTypeColumn && (
                         <td className="py-2 px-2">
                           <Select
                             value={question.question_type}
@@ -370,8 +428,12 @@ const TemplateEdit = () => {
                               } else if (value === "discursive") {
                                 updates.correct_answer = "0";
                                 updates.num_propositions = null;
+                              } else if (value === "true_false") {
+                                updates.correct_answer = "V";
+                                updates.num_propositions = null;
                               } else {
-                                updates.correct_answer = "A";
+                                // objective and objective_N variants
+                                updates.correct_answer = getObjectiveAlternatives(value)[0];
                                 updates.num_propositions = null;
                               }
                               updateQuestion(index, updates);
@@ -462,7 +524,7 @@ const TemplateEdit = () => {
                           />
                         )}
                       </td>
-                      {isUfscType && (
+                      {showTypeColumn && (
                         <td className="py-2 px-2">
                           {question.question_type === "summation" ? (
                             <Input

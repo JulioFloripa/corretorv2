@@ -11,6 +11,29 @@ interface GenerateBody {
   student_ids?: string[]; // se vazio, usa todos os matriculados em template_students
 }
 
+/**
+ * Retorna as alternativas corretas para o tipo de prova.
+ * Para provas personalizadas, analisa o tipo da primeira questão objetiva.
+ */
+function deriveAlternatives(examType: string, questions: { question_type?: string }[]): string[] {
+  const lower = (examType || "").toLowerCase();
+  if (lower === "acafe" || lower === "acafe_criciuma") return ["A", "B", "C", "D"];
+  if (lower === "enem") return ["A", "B", "C", "D", "E"];
+  if (lower === "ufsc") return [];
+
+  // Para custom / multiple_choice: usa o tipo da primeira questão objetiva
+  for (const q of questions) {
+    const qt = (q.question_type || "objective").toLowerCase();
+    if (qt === "true_false") return ["V", "F"];
+    if (qt === "objective_2") return ["A", "B"];
+    if (qt === "objective_3") return ["A", "B", "C"];
+    if (qt === "objective_4") return ["A", "B", "C", "D"];
+    if (qt === "objective" || qt.startsWith("objective")) return ["A", "B", "C", "D", "E"];
+    // questões somatório/discursiva/numérica não determinam alternativas; continua
+  }
+  return ["A", "B", "C", "D", "E"]; // padrão seguro
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -104,15 +127,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Payload v5: simplificado — { template_type, students:[{id, name, sede}] }
+    // Deriva as alternativas com base no tipo da prova e nas questões salvas
+    const alternatives = deriveAlternatives(template.exam_type, questions || []);
+
+    // Payload v6: inclui total_questions e alternatives para suportar provas personalizadas
     const payload = {
       template_type: String(template.exam_type || "ACAFE").toUpperCase(),
+      template_name: template.name,
+      total_questions: template.total_questions,
+      alternatives,
       students: sheets.map((sh) => {
         const student = students.find((s: any) => s.id === sh.student_id)!;
         return {
           id: student.student_id || student.id,
           name: student.name,
-          sede: student.campus || "",
+          campus: student.campus || "",
         };
       }),
     };
