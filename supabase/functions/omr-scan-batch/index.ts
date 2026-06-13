@@ -10,6 +10,28 @@ interface ScanBody {
   scan_paths: string[]; // paths no bucket omr-scans
 }
 
+/**
+ * Retorna as alternativas corretas para o tipo de prova.
+ * Para provas personalizadas, analisa o tipo da primeira questão objetiva.
+ * (Espelha a mesma lógica de omr-generate-batch para manter geração e leitura compatíveis.)
+ */
+function deriveAlternatives(examType: string, questions: { question_type?: string }[]): string[] {
+  const lower = (examType || "").toLowerCase();
+  if (lower === "acafe" || lower === "acafe_criciuma") return ["A", "B", "C", "D"];
+  if (lower === "enem") return ["A", "B", "C", "D", "E"];
+  if (lower === "ufsc") return [];
+
+  for (const q of questions) {
+    const qt = (q.question_type || "objective").toLowerCase();
+    if (qt === "true_false") return ["V", "F"];
+    if (qt === "objective_2") return ["A", "B"];
+    if (qt === "objective_3") return ["A", "B", "C"];
+    if (qt === "objective_4") return ["A", "B", "C", "D"];
+    if (qt === "objective" || qt.startsWith("objective")) return ["A", "B", "C", "D", "E"];
+  }
+  return ["A", "B", "C", "D", "E"];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -40,10 +62,18 @@ Deno.serve(async (req) => {
 
     const { data: template } = await supabase
       .from("templates")
-      .select("id, exam_type")
+      .select("id, exam_type, total_questions")
       .eq("id", body.template_id)
       .maybeSingle();
     if (!template) return json({ error: "Prova não encontrada" }, 404);
+
+    // Deriva as alternativas com base nas questões cadastradas (para provas personalizadas)
+    const { data: tplQuestions } = await supabase
+      .from("template_questions")
+      .select("question_type")
+      .eq("template_id", template.id)
+      .order("question_number");
+    const alternatives = deriveAlternatives(template.exam_type, tplQuestions || []);
 
     // v5: gerar signed URLs para cada scan e enviar via /scan-batch-url
     const scanFiles: Array<{ scan_id: string; filename: string; path: string; image_url: string }> = [];
@@ -75,7 +105,11 @@ Deno.serve(async (req) => {
         "X-Fleming-Token": OMR_API_TOKEN,
       },
       body: JSON.stringify({
-        template: { template_type: String(template.exam_type || "ACAFE").toUpperCase() },
+        template: {
+          exam_type: String(template.exam_type || "ACAFE").toUpperCase(),
+          total_questions: template.total_questions,
+          alternatives,
+        },
         scans: scanFiles.map((s) => ({ scan_id: s.scan_id, image_url: s.image_url })),
       }),
     });
