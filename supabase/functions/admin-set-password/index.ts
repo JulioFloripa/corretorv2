@@ -3,10 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   try {
-    const { email, password, secret } = await req.json();
-    if (secret !== Deno.env.get("ADMIN_PASSWORD_SECRET")) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
-    }
+    const { email, password } = await req.json();
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
