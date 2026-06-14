@@ -48,12 +48,17 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Não autenticado" }, 401);
 
+    const token = authHeader.replace("Bearer ", "");
+    let userId: string;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      userId = payload.sub;
+      if (!userId) throw new Error("sub ausente");
+    } catch {
+      return json({ error: "Sessão inválida" }, 401);
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: userData, error: userErr } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-    if (userErr || !userData.user) return json({ error: "Sessão inválida" }, 401);
-    const userId = userData.user.id;
 
     const body: ScanBody = await req.json();
     if (!body.template_id || !Array.isArray(body.scan_paths) || body.scan_paths.length === 0) {
