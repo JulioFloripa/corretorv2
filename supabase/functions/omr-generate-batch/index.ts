@@ -54,7 +54,8 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     let userId: string;
     try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
+      const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const payload = JSON.parse(atob(b64));
       userId = payload.sub;
       if (!userId) throw new Error("sub ausente");
     } catch {
