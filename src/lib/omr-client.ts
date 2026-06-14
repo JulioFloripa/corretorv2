@@ -1,13 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
 
+const SUPABASE_URL = "https://supabase.flemingfloripa.com.br";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgwNzQ1OTU3LCJleHAiOjIwOTYxMDU5NTd9.ry3A5SbXnPH0SgIKLRNRv0Rf9IH3GCV17xRZ0D1TwEc";
+
 export async function generateBatch(templateId: string, studentIds?: string[]) {
   const { data: sessionData } = await supabase.auth.getSession();
-  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/omr-generate-batch`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/omr-generate-batch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${sessionData.session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${sessionData.session?.access_token || SUPABASE_ANON_KEY}`,
+      apikey: SUPABASE_ANON_KEY,
     },
     body: JSON.stringify({ template_id: templateId, student_ids: studentIds }),
   });
