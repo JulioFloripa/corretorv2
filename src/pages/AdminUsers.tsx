@@ -13,7 +13,7 @@ import { UserPlus, Loader2 } from "lucide-react";
 const SUPABASE_URL = "https://supabase.flemingfloripa.com.br";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgwNzQ1OTU3LCJleHAiOjIwOTYxMDU5NTd9.ry3A5SbXnPH0SgIKLRNRv0Rf9IH3GCV17xRZ0D1TwEc";
 
-const PAPEIS = ["admin", "professor", "coordenador", "secretaria"];
+const PAPEIS = ["diretor", "coordenador", "professor"];
 
 interface Sede { id: string; nome: string; }
 interface Usuario {
