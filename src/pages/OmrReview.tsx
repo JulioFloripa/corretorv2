@@ -37,8 +37,8 @@ interface Question {
 
 interface Student {
   id: string;
-  name: string;
-  student_id: string | null;
+  nome: string;
+  matricula: string | null;
 }
 
 const OBJECTIVE_OPTIONS = ["A", "B", "C", "D", "E"];
@@ -125,7 +125,7 @@ const OmrReview = () => {
     const term = studentSearchTerm.toLowerCase().trim();
     if (!term) return students.slice(0, 50);
     return students.filter((s) =>
-      s.name.toLowerCase().includes(term) || (s.student_id || "").toLowerCase().includes(term)
+      s.nome.toLowerCase().includes(term) || (s.matricula || "").toLowerCase().includes(term)
     ).slice(0, 50);
   }, [students, studentSearchTerm]);
 
@@ -311,7 +311,7 @@ const OmrReview = () => {
             <div className="text-xs text-muted-foreground mt-1">
               {currentStudent ? (
                 <>
-                  Aluno: <strong>{currentStudent.name}</strong> {currentStudent.student_id && `(${currentStudent.student_id})`}
+                  Aluno: <strong>{currentStudent.nome}</strong> {currentStudent.matricula && `(${currentStudent.matricula})`}
                   {current?.language && (
                     <span className="ml-2">• Língua estrangeira: <strong>{current.language}</strong></span>
                   )}
@@ -525,8 +525,8 @@ const OmrReview = () => {
                   onClick={() => linkStudent(s.id)}
                   className="w-full text-left p-3 hover:bg-accent transition-colors"
                 >
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">{s.student_id || "sem matrícula"}</div>
+                  <div className="font-medium">{s.nome}</div>
+                  <div className="text-xs text-muted-foreground">{s.matricula || "sem matrícula"}</div>
                 </button>
               ))}
             </div>
