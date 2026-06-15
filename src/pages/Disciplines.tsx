@@ -11,13 +11,13 @@ import { Badge } from "@/components/ui/badge";
 
 interface Topic {
   id: string;
-  name: string;
-  discipline_id: string;
+  nome: string;
+  disciplina_id: string;
 }
 
 interface Discipline {
   id: string;
-  name: string;
+  nome: string;
   topics: Topic[];
 }
 
@@ -36,9 +36,9 @@ const Disciplines = () => {
 
   const loadDisciplines = async () => {
     const { data: discData, error: discError } = await supabase
-      .from("disciplines")
+      .from("disciplinas")
       .select("*")
-      .order("name");
+      .order("nome");
 
     if (discError) {
       toast({ variant: "destructive", title: "Erro ao carregar disciplinas", description: discError.message });
@@ -47,14 +47,14 @@ const Disciplines = () => {
     }
 
     const { data: topicsData } = await supabase
-      .from("discipline_topics")
+      .from("assuntos")
       .select("*")
-      .order("name");
+      .order("nome");
 
     const mapped: Discipline[] = (discData || []).map((d) => ({
       id: d.id,
-      name: d.name,
-      topics: (topicsData || []).filter((t) => t.discipline_id === d.id),
+      nome: d.nome,
+      topics: (topicsData || []).filter((t) => t.disciplina_id === d.id),
     }));
 
     setDisciplines(mapped);
@@ -68,10 +68,10 @@ const Disciplines = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const { error } = await supabase.from("disciplines").insert({ name, user_id: session.user.id });
+    const { error } = await supabase.from("disciplinas").insert({ nome: name });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message.includes("idx_disciplines_user_name") ? "Disciplina já cadastrada." : error.message });
+      toast({ variant: "destructive", title: "Erro", description: error.message.includes("unique") ? "Disciplina já cadastrada." : error.message });
       return;
     }
 
@@ -81,7 +81,7 @@ const Disciplines = () => {
   };
 
   const deleteDiscipline = async (id: string) => {
-    const { error } = await supabase.from("disciplines").delete().eq("id", id);
+    const { error } = await supabase.from("disciplinas").delete().eq("id", id);
     if (error) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
     } else {
@@ -94,10 +94,10 @@ const Disciplines = () => {
     const name = (newTopics[disciplineId] || "").trim();
     if (!name) return;
 
-    const { error } = await supabase.from("discipline_topics").insert({ name, discipline_id: disciplineId });
+    const { error } = await supabase.from("assuntos").insert({ nome: name, disciplina_id: disciplineId });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message.includes("idx_topics_discipline_name") ? "Conteúdo já cadastrado nesta disciplina." : error.message });
+      toast({ variant: "destructive", title: "Erro", description: error.message.includes("unique") ? "Conteúdo já cadastrado nesta disciplina." : error.message });
       return;
     }
 
@@ -107,7 +107,7 @@ const Disciplines = () => {
   };
 
   const deleteTopic = async (id: string) => {
-    const { error } = await supabase.from("discipline_topics").delete().eq("id", id);
+    const { error } = await supabase.from("assuntos").delete().eq("id", id);
     if (error) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
     } else {
@@ -185,7 +185,7 @@ const Disciplines = () => {
                     ) : (
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     )}
-                    <CardTitle className="text-lg">{disc.name}</CardTitle>
+                    <CardTitle className="text-lg">{disc.nome}</CardTitle>
                     <Badge variant="secondary" className="ml-2">
                       {disc.topics.length} conteúdo{disc.topics.length !== 1 ? "s" : ""}
                     </Badge>
@@ -231,7 +231,7 @@ const Disciplines = () => {
                           variant="outline"
                           className="flex items-center gap-1 py-1 px-3"
                         >
-                          {topic.name}
+                          {topic.nome}
                           <button
                             onClick={() => deleteTopic(topic.id)}
                             className="ml-1 text-muted-foreground hover:text-destructive"
