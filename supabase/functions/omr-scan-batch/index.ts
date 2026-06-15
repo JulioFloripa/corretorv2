@@ -157,11 +157,14 @@ Deno.serve(async (req) => {
         }
       }
 
-      // v5: detected_answers vem como { "1": "A", "2": "C", ... } — normalizar para "q1", "q2"
+      // API retorna chaves como "Q1", "Q2" — normalizar para "q1", "q2"
       const detected: Record<string, string> = {};
       const rawAnswers = r.detected_answers || {};
       for (const [k, v] of Object.entries(rawAnswers)) {
-        if (v != null && v !== "") detected[`q${k}`] = String(v);
+        if (v != null && v !== "") {
+          const numStr = k.replace(/^Q/i, "");
+          detected[`q${numStr}`] = String(v);
+        }
       }
 
       submissionsToInsert.push({
