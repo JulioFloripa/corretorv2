@@ -10,11 +10,6 @@ interface ScanBody {
   scan_paths: string[]; // paths no bucket omr-scans
 }
 
-/**
- * Retorna as alternativas corretas para o tipo de prova.
- * Para provas personalizadas, analisa o tipo da primeira questão objetiva.
- * (Espelha a mesma lógica de omr-generate-batch para manter geração e leitura compatíveis.)
- */
 function deriveAlternatives(examType: string, questions: { question_type?: string }[]): string[] {
   const lower = (examType || "").toLowerCase();
   if (lower === "acafe" || lower === "acafe_criciuma") return ["A", "B", "C", "D"];
@@ -73,7 +68,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!template) return json({ error: "Prova não encontrada" }, 404);
 
-    // Deriva as alternativas com base nas questões cadastradas (para provas personalizadas)
     const { data: tplQuestions } = await supabase
       .from("template_questions")
       .select("question_type")
@@ -81,65 +75,71 @@ Deno.serve(async (req) => {
       .order("question_number");
     const alternatives = deriveAlternatives(template.exam_type, tplQuestions || []);
 
-    // v5: gerar signed URLs para cada scan e enviar via /scan-batch-url
-    const scanFiles: Array<{ scan_id: string; filename: string; path: string; image_url: string }> = [];
-    for (const path of body.scan_paths) {
-      const { data: signed, error: sErr } = await supabase.storage
-        .from("omr-scans")
-        .createSignedUrl(path, 3600);
-      if (sErr || !signed) {
-        console.error("Erro ao gerar signed URL:", path, sErr);
-        continue;
-      }
-      const filename = path.split("/").pop() || `scan_${crypto.randomUUID()}.jpg`;
-      scanFiles.push({
-        scan_id: crypto.randomUUID(),
-        filename,
-        path,
-        image_url: signed.signedUrl,
-      });
-    }
-
-    if (scanFiles.length === 0) {
-      return json({ error: "Não foi possível preparar nenhuma imagem" }, 500);
-    }
-
-    const omrRes = await fetch(`${OMR_API_URL}/scan-batch-url`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Fleming-Token": OMR_API_TOKEN,
-      },
-      body: JSON.stringify({
-        template: {
-          exam_type: String(template.exam_type || "ACAFE").toUpperCase(),
-          total_questions: template.total_questions,
-          alternatives,
-        },
-        scans: scanFiles.map((s) => ({ scan_id: s.scan_id, image_url: s.image_url })),
-      }),
+    const scanConfig = JSON.stringify({
+      exam_type: String(template.exam_type || "ACAFE").toUpperCase(),
+      total_questions: template.total_questions,
+      alternatives,
     });
 
-    if (!omrRes.ok) {
-      const errText = await omrRes.text();
-      console.error("OMR API erro:", omrRes.status, errText);
-      return json({ error: `OMR API retornou ${omrRes.status}: ${errText}` }, 502);
-    }
-
-    const result = await omrRes.json();
-    const apiResults: any[] = result.results || [];
-
-    // v5: API retorna scan_id pra mapear de volta ao path original
-    const scanIdToFile = new Map(scanFiles.map((s) => [s.scan_id, s]));
     const submissionsToInsert: any[] = [];
-    for (const r of apiResults) {
-      const matched = scanIdToFile.get(r.scan_id);
-      if (!matched) continue;
 
-      // v5: resolver student via matricula (r.student_id é a matrícula string)
+    for (const path of body.scan_paths) {
+      const scanId = crypto.randomUUID();
+      const filename = path.split("/").pop() || `scan_${scanId}`;
+
+      // Download da imagem via rede interna (evita Cloud Run precisar acessar URL pública)
+      const { data: fileData, error: dlErr } = await supabase.storage
+        .from("omr-scans")
+        .download(path);
+
+      if (dlErr || !fileData) {
+        console.error("Erro ao baixar imagem:", path, dlErr?.message);
+        submissionsToInsert.push({
+          user_id: userId,
+          template_id: template.id,
+          student_id: null,
+          answer_sheet_id: null,
+          scan_image_path: path,
+          qr_data: { template_id: null, student_id: null, template_type: null },
+          detected_answers: {},
+          read_errors: [`Erro ao baixar imagem: ${dlErr?.message || "desconhecido"}`],
+          success: false,
+        });
+        continue;
+      }
+
+      // Enviar bytes diretamente para a Cloud Run via /scan (form-data)
+      const imageBytes = await fileData.arrayBuffer();
+      const ext = filename.toLowerCase().endsWith(".pdf") ? "pdf" : "png";
+      const mimeType = ext === "pdf" ? "application/pdf" : "image/png";
+
+      const formData = new FormData();
+      formData.append("file", new Blob([imageBytes], { type: mimeType }), `${scanId}.${ext}`);
+      formData.append("config", scanConfig);
+
+      let r: any = null;
+      try {
+        const omrRes = await fetch(`${OMR_API_URL}/scan`, {
+          method: "POST",
+          headers: { "X-Fleming-Token": OMR_API_TOKEN },
+          body: formData,
+        });
+        if (omrRes.ok) {
+          r = await omrRes.json();
+        } else {
+          const errText = await omrRes.text();
+          console.error("OMR /scan erro:", omrRes.status, errText);
+          r = { success: false, errors: [`API retornou ${omrRes.status}: ${errText}`] };
+        }
+      } catch (fetchErr: any) {
+        console.error("Erro de rede ao chamar OMR API:", fetchErr.message);
+        r = { success: false, errors: [`Erro de rede: ${fetchErr.message}`] };
+      }
+
+      // Resolver student via matricula (r.student_id é a matrícula string do QR)
       let studentDbId: string | null = null;
       let sheetDbId: string | null = null;
-      if (r.student_id) {
+      if (r?.student_id) {
         const { data: stu } = await supabase
           .from("alunos")
           .select("id")
@@ -157,9 +157,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // API retorna chaves como "Q1", "Q2" — normalizar para "q1", "q2"
+      // Normalizar detected_answers: API retorna "Q1","Q2" → "q1","q2"
       const detected: Record<string, string> = {};
-      const rawAnswers = r.detected_answers || {};
+      const rawAnswers = r?.detected_answers || {};
       for (const [k, v] of Object.entries(rawAnswers)) {
         if (v != null && v !== "") {
           const numStr = k.replace(/^Q/i, "");
@@ -172,22 +172,22 @@ Deno.serve(async (req) => {
         template_id: template.id,
         student_id: studentDbId,
         answer_sheet_id: sheetDbId,
-        scan_image_path: matched.path,
+        scan_image_path: path,
         qr_data: {
-          template_id: r.template_id || null,
-          student_id: r.student_id || null,
-          template_type: r.template_type || null,
+          template_id: r?.template_id || null,
+          student_id: r?.student_id || null,
+          template_type: r?.template_type || null,
         },
         detected_answers: detected,
-        read_errors: r.errors || [],
-        success: r.success !== false,
-        language: r.language || null,
-        template_type: r.template_type || null,
+        read_errors: r?.errors || [],
+        success: r?.success !== false,
+        language: r?.language || null,
+        template_type: r?.template_type || null,
       });
     }
 
     if (submissionsToInsert.length === 0) {
-      return json({ error: "API OMR não retornou resultados válidos", raw: result }, 502);
+      return json({ error: "Nenhuma imagem pôde ser processada" }, 500);
     }
 
     const { data: inserted, error: insErr } = await supabase
@@ -200,16 +200,15 @@ Deno.serve(async (req) => {
       return json({ error: insErr.message }, 500);
     }
 
+    const ok = submissionsToInsert.filter((s) => s.success).length;
+    const failed = submissionsToInsert.filter((s) => !s.success).length;
+
     return json({
       success: true,
       processed: submissionsToInsert.length,
       submission_ids: (inserted || []).map((r: any) => r.id),
-      summary: {
-        total: apiResults.length,
-        ok: apiResults.filter((r: any) => r.success !== false).length,
-        failed: apiResults.filter((r: any) => r.success === false).length,
-      },
-    }, 200);
+      summary: { total: submissionsToInsert.length, ok, failed },
+    });
   } catch (err: any) {
     console.error("Erro inesperado:", err);
     return json({ error: err.message || "Erro interno" }, 500);
