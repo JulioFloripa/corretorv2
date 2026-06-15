@@ -454,31 +454,37 @@ const TemplateEdit = () => {
                         {renderAnswerInput(question, index)}
                       </td>
                       <td className="py-2 px-2">
-                        {isVariant ? (
-                          <span className="text-xs text-muted-foreground">
-                            Língua Estrangeira ({question.language_variant})
-                          </span>
-                        ) : (
-                          <Select
-                            value={question.subject || "__none__"}
-                            onValueChange={(value) => {
+                        <Select
+                          value={
+                            question.language_variant === "Inglês" ? "__le_ingles__"
+                            : question.language_variant === "Espanhol" ? "__le_espanhol__"
+                            : question.subject || "__none__"
+                          }
+                          onValueChange={(value) => {
+                            if (value === "__le_ingles__") {
+                              updateQuestion(index, { language_variant: "Inglês", subject: null, topic: null });
+                            } else if (value === "__le_espanhol__") {
+                              updateQuestion(index, { language_variant: "Espanhol", subject: null, topic: null });
+                            } else {
                               const realValue = value === "__none__" ? null : value;
-                              updateQuestion(index, { subject: realValue, topic: null });
-                            }}
-                          >
-                            <SelectTrigger className="h-8">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Selecione...</SelectItem>
-                              {disciplines.map((disc) => (
-                                <SelectItem key={disc.id} value={disc.name}>
-                                  {disc.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                              updateQuestion(index, { language_variant: null, subject: realValue, topic: null });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Selecione...</SelectItem>
+                            <SelectItem value="__le_ingles__">🇬🇧 Língua Estrangeira — Inglês</SelectItem>
+                            <SelectItem value="__le_espanhol__">🇪🇸 Língua Estrangeira — Espanhol</SelectItem>
+                            {disciplines.map((disc) => (
+                              <SelectItem key={disc.id} value={disc.name}>
+                                {disc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="py-2 px-2">
                         {isVariant ? null : (
