@@ -14,6 +14,18 @@ import { Plus, Pencil, Trash2, Users, Search, UserPlus } from "lucide-react";
 
 import { useCampuses } from "@/hooks/use-campuses";
 
+function dbError(msg: string): string {
+  if (msg.includes("alunos_turma_id_fkey") || msg.includes("foreign key constraint"))
+    return "Não foi possível vincular o aluno — a turma não existe ou é inválida.";
+  if (msg.includes("unique") || msg.includes("duplicate"))
+    return "Já existe uma turma com esse nome nesta sede.";
+  if (msg.includes("violates") && msg.includes("classes"))
+    return "Não é possível excluir a turma pois ainda há alunos vinculados a ela.";
+  if (msg.includes("not-null") || msg.includes("null value"))
+    return "Preencha todos os campos obrigatórios.";
+  return msg;
+}
+
 interface ClassRow {
   id: string;
   campus: string;
@@ -121,7 +133,7 @@ const Classes = () => {
       setOpenForm(false);
       load();
     } catch (err: any) {
-      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: dbError(err.message), variant: "destructive" });
     }
   };
 
@@ -129,7 +141,7 @@ const Classes = () => {
     if (!confirm(`Excluir a turma "${c.name}" (${c.campus})? Os alunos vinculados ficarão sem turma.`)) return;
     const { error } = await supabase.from("classes").delete().eq("id", c.id);
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Não foi possível excluir", description: dbError(error.message), variant: "destructive" });
       return;
     }
     toast({ title: "Turma excluída" });
@@ -192,7 +204,7 @@ const Classes = () => {
       setOpenAssign(false);
       load();
     } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar turma", description: dbError(err.message), variant: "destructive" });
     }
   };
 
