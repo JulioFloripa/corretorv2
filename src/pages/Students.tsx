@@ -28,17 +28,22 @@ interface Student {
   nome: string;
   matricula: string | null;
   campus: string | null;
-  foreign_language: string | null;
+  turma_id: string | null;
   email: string | null;
 }
 
-const FOREIGN_LANGUAGES = ["Inglês", "Espanhol"];
+interface ClassOption {
+  id: string;
+  name: string;
+  campus: string;
+}
 
 const Students = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { campuses } = useCampuses();
   const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<keyof Student | null>(null);
@@ -51,7 +56,7 @@ const Students = () => {
   const [formName, setFormName] = useState("");
   const [formStudentId, setFormStudentId] = useState("");
   const [formCampus, setFormCampus] = useState("");
-  const [formLanguage, setFormLanguage] = useState("");
+  const [formTurmaId, setFormTurmaId] = useState("");
   const [formEmail, setFormEmail] = useState("");
 
   useEffect(() => {
@@ -66,21 +71,21 @@ const Students = () => {
       navigate("/auth");
       return;
     }
-    fetchStudents();
+    fetchData();
   };
 
-  const fetchStudents = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    // Agora busca todos os alunos (RLS permite leitura compartilhada)
-    const { data, error } = await supabase
-      .from("alunos")
-      .select("id, nome, matricula, campus, foreign_language, email")
-      .order("nome");
+    const [{ data: studsData, error }, { data: clsData }] = await Promise.all([
+      supabase.from("alunos").select("id, nome, matricula, campus, turma_id, email").order("nome"),
+      supabase.from("classes").select("id, name, campus").order("campus").order("name"),
+    ]);
 
     if (error) {
       toast({ title: "Erro ao carregar alunos", description: error.message, variant: "destructive" });
     } else {
-      setStudents(data || []);
+      setStudents(studsData || []);
+      setClasses((clsData || []) as ClassOption[]);
     }
     setLoading(false);
   };
@@ -90,7 +95,7 @@ const Students = () => {
     setFormName("");
     setFormStudentId("");
     setFormCampus("");
-    setFormLanguage("");
+    setFormTurmaId("");
     setFormEmail("");
     setDialogOpen(true);
   };
@@ -100,7 +105,7 @@ const Students = () => {
     setFormName(student.nome);
     setFormStudentId(student.matricula || "");
     setFormCampus(student.campus || "");
-    setFormLanguage(student.foreign_language || "");
+    setFormTurmaId(student.turma_id || "");
     setFormEmail(student.email || "");
     setDialogOpen(true);
   };
@@ -120,7 +125,7 @@ const Students = () => {
       nome: formName.trim(),
       matricula: formStudentId.trim() || null,
       campus: formCampus || null,
-      foreign_language: formLanguage || null,
+      turma_id: formTurmaId || null,
       email: formEmail.trim() || null,
     };
 
@@ -150,7 +155,7 @@ const Students = () => {
     }
 
     setDialogOpen(false);
-    fetchStudents();
+    fetchData();
   };
 
   const handleDelete = async () => {
@@ -160,7 +165,7 @@ const Students = () => {
       toast({ title: "Erro ao excluir aluno", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Aluno excluído" });
-      fetchStudents();
+      fetchData();
     }
     setDeleteId(null);
   };
@@ -265,8 +270,8 @@ const Students = () => {
                     <TableHead className="w-[14%] cursor-pointer select-none" onClick={() => handleSort("campus")}>
                       <span className="flex items-center">Sede <SortIcon field="campus" /></span>
                     </TableHead>
-                    <TableHead className="w-[14%] cursor-pointer select-none" onClick={() => handleSort("foreign_language")}>
-                      <span className="flex items-center">Língua <SortIcon field="foreign_language" /></span>
+                    <TableHead className="w-[14%] cursor-pointer select-none" onClick={() => handleSort("turma_id")}>
+                      <span className="flex items-center">Turma <SortIcon field="turma_id" /></span>
                     </TableHead>
                     <TableHead className="w-[20%] cursor-pointer select-none" onClick={() => handleSort("email")}>
                       <span className="flex items-center">E-mail <SortIcon field="email" /></span>
@@ -280,7 +285,7 @@ const Students = () => {
                       <TableCell className="font-medium">{student.nome}</TableCell>
                       <TableCell>{student.matricula || "—"}</TableCell>
                       <TableCell>{student.campus || "—"}</TableCell>
-                      <TableCell>{student.foreign_language || "—"}</TableCell>
+                      <TableCell>{classes.find((c) => c.id === student.turma_id)?.name || "—"}</TableCell>
                       <TableCell className="truncate max-w-[150px]">{student.email || "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
@@ -328,7 +333,7 @@ const Students = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="campus">Sede</Label>
-              <Select value={formCampus} onValueChange={setFormCampus}>
+              <Select value={formCampus} onValueChange={(v) => { setFormCampus(v); setFormTurmaId(""); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a sede" />
                 </SelectTrigger>
@@ -342,17 +347,23 @@ const Students = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="language">Língua Estrangeira</Label>
-              <Select value={formLanguage} onValueChange={setFormLanguage}>
+              <Label htmlFor="turma">Turma</Label>
+              <Select
+                value={formTurmaId}
+                onValueChange={setFormTurmaId}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione a língua" />
+                  <SelectValue placeholder="Selecione a turma" />
                 </SelectTrigger>
                 <SelectContent>
-                  {FOREIGN_LANGUAGES.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="">Sem turma</SelectItem>
+                  {classes
+                    .filter((c) => !formCampus || c.campus === formCampus)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
