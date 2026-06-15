@@ -98,7 +98,7 @@ const Correcao = () => {
       const subsData = (subs as any[]) || [];
 
       // busca alunos separado (sem FK join)
-      const studentIds = [...new Set(subsData.map((s: any) => s.matricula).filter(Boolean))] as string[];
+      const studentIds = [...new Set(subsData.map((s: any) => s.student_id).filter(Boolean))] as string[];
       const map = new Map<string, Student>();
       if (studentIds.length > 0) {
         const { data: studs } = await supabase
@@ -108,7 +108,7 @@ const Correcao = () => {
         ((studs as any[]) || []).forEach((s: any) => map.set(s.id, s));
       }
 
-      setTemplateName(tpl?.nome || "");
+      setTemplateName(tpl?.name || "");
       setSubmissions(subsData);
       setQuestions((qs as any[]) || []);
       setStudentsMap(map);

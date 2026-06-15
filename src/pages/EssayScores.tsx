@@ -92,7 +92,7 @@ const EssayScores = () => {
         return;
       }
 
-      const studentIds = (enrollments || []).map((e: any) => e.matricula).filter(Boolean);
+      const studentIds = (enrollments || []).map((e: any) => e.student_id).filter(Boolean);
 
       if (studentIds.length === 0) {
         setStudents([]);
@@ -104,7 +104,7 @@ const EssayScores = () => {
       const [{ data: studentsData }, { data: corrections }] = await Promise.all([
         supabase
           .from("alunos")
-          .select("id, name, student_id, campus")
+          .select("id, nome, matricula, campus")
           .in("id", studentIds),
         supabase
           .from("corrections")
@@ -113,17 +113,17 @@ const EssayScores = () => {
       ]);
 
       const corrByName = new Map<string, any>();
-      const corrByMatricula = new Map<string, any>();
+      const corrByStudentId = new Map<string, any>();
       for (const c of (corrections as any[]) || []) {
         if (c.student_name) corrByName.set(c.student_name, c);
-        if (c.matricula) corrByMatricula.set(c.matricula, c);
+        if (c.student_id) corrByStudentId.set(c.student_id, c);
       }
 
       const rows: StudentEssay[] = ((studentsData as any[]) || [])
         .sort((a: any, b: any) => a.nome.localeCompare(b.nome))
         .map((s: any) => {
           const corr =
-            (s.matricula && corrByMatricula.get(s.matricula)) ||
+            corrByStudentId.get(s.id) ||
             corrByName.get(s.nome) ||
             null;
           return {
@@ -334,7 +334,7 @@ const EssayScores = () => {
               <SelectContent>
                 {templates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.nome} — {t.exam_type} ({t.total_questions} questões)
+                    {t.name} — {t.exam_type} ({t.total_questions} questões)
                   </SelectItem>
                 ))}
               </SelectContent>

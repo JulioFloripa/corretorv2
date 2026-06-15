@@ -137,13 +137,13 @@ const CorrectionEdit = () => {
       (ans || []).forEach((a) => { ansMap[a.question_number] = a as AnswerRow; });
       setAnswers(ansMap);
 
-      // Buscar aluno por matrícula ou nome
+      // Buscar aluno por id (FK) ou nome
       let studentRow: { id: string; foreign_language: string | null } | null = null;
-      if (corr.matricula) {
+      if (corr.student_id) {
         const { data } = await supabase
           .from("alunos")
           .select("id, foreign_language")
-          .eq("student_id", corr.matricula)
+          .eq("id", corr.student_id)
           .maybeSingle();
         studentRow = data as any;
       }
@@ -151,7 +151,7 @@ const CorrectionEdit = () => {
         const { data } = await supabase
           .from("alunos")
           .select("id, foreign_language")
-          .eq("name", corr.student_name)
+          .eq("nome", corr.student_name)
           .maybeSingle();
         studentRow = data as any;
       }
@@ -338,7 +338,7 @@ const CorrectionEdit = () => {
               <h1 className="font-bold truncate">{correction.student_name}</h1>
               {correction.matricula && <Badge variant="outline">Mat. {correction.matricula}</Badge>}
               <Badge variant="secondary">{template.exam_type}</Badge>
-              <span className="text-sm text-muted-foreground truncate">• {template.nome}</span>
+              <span className="text-sm text-muted-foreground truncate">• {template.name}</span>
             </div>
             <div className="text-xs text-muted-foreground">
               Nota: <strong>{(correction.total_score ?? 0).toFixed(1)} / {(correction.max_score ?? 0).toFixed(1)}</strong>
