@@ -95,8 +95,8 @@ Deno.serve(async (req) => {
     }
 
     const { data: students } = await supabase
-      .from("students")
-      .select("id, name, student_id, campus")
+      .from("alunos")
+      .select("id, nome, matricula, campus")
       .in("id", studentIds);
     if (!students || students.length === 0) {
       return json({ error: "Alunos não encontrados" }, 404);
@@ -147,8 +147,8 @@ Deno.serve(async (req) => {
       students: sheets.map((sh) => {
         const student = students.find((s: any) => s.id === sh.student_id)!;
         return {
-          id: student.student_id || student.id,
-          name: student.name,
+          id: student.matricula || student.id,
+          name: student.nome,
           campus: student.campus || "",
         };
       }),

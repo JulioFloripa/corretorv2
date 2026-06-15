@@ -161,7 +161,7 @@ const BoletimUfsc = () => {
   const loadStudentsMeta = async () => {
     const names = [...new Set(allCorrections.map((c) => c.student_name))];
     if (names.length === 0) return;
-    const { data } = await supabase.from("students").select("name, campus, foreign_language, email").in("name", names);
+    const { data } = await supabase.from("alunos").select("nome, campus, foreign_language, email").in("nome", names);
     if (data) {
       const map: Record<string, StudentMeta> = {};
       data.forEach((s: any) => { map[s.name] = { campus: s.campus, foreign_language: s.foreign_language, email: s.email }; });

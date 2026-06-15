@@ -25,8 +25,8 @@ import FlemingLogo from "@/components/FlemingLogo";
 
 interface Student {
   id: string;
-  name: string;
-  student_id: string | null;
+  nome: string;
+  matricula: string | null;
   campus: string | null;
   foreign_language: string | null;
   email: string | null;
@@ -73,9 +73,9 @@ const Students = () => {
     setLoading(true);
     // Agora busca todos os alunos (RLS permite leitura compartilhada)
     const { data, error } = await supabase
-      .from("students")
-      .select("id, name, student_id, campus, foreign_language, email")
-      .order("name");
+      .from("alunos")
+      .select("id, nome, matricula, campus, foreign_language, email")
+      .order("nome");
 
     if (error) {
       toast({ title: "Erro ao carregar alunos", description: error.message, variant: "destructive" });
@@ -97,8 +97,8 @@ const Students = () => {
 
   const openEditDialog = (student: Student) => {
     setEditingStudent(student);
-    setFormName(student.name);
-    setFormStudentId(student.student_id || "");
+    setFormName(student.nome);
+    setFormStudentId(student.matricula || "");
     setFormCampus(student.campus || "");
     setFormLanguage(student.foreign_language || "");
     setFormEmail(student.email || "");
@@ -117,16 +117,15 @@ const Students = () => {
     if (!session) return;
 
     const payload = {
-      name: formName.trim(),
-      student_id: formStudentId.trim() || null,
+      nome: formName.trim(),
+      matricula: formStudentId.trim() || null,
       campus: formCampus || null,
       foreign_language: formLanguage || null,
       email: formEmail.trim() || null,
-      user_id: session.user.id,
     };
 
     if (editingStudent) {
-      const { error } = await supabase.from("students").update(payload).eq("id", editingStudent.id);
+      const { error } = await supabase.from("alunos").update(payload).eq("id", editingStudent.id);
 
       if (error) {
         toast({ title: "Erro ao atualizar aluno", description: error.message, variant: "destructive" });
@@ -134,7 +133,7 @@ const Students = () => {
       }
       toast({ title: "Aluno atualizado com sucesso" });
     } else {
-      const { error } = await supabase.from("students").insert(payload);
+      const { error } = await supabase.from("alunos").insert(payload);
       if (error) {
         if (error.code === "23505") {
           toast({
@@ -156,7 +155,7 @@ const Students = () => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from("students").delete().eq("id", deleteId);
+    const { error } = await supabase.from("alunos").delete().eq("id", deleteId);
     if (error) {
       toast({ title: "Erro ao excluir aluno", description: error.message, variant: "destructive" });
     } else {
@@ -188,8 +187,8 @@ const Students = () => {
     .filter((s) => {
       const q = search.toLowerCase();
       return (
-        s.name.toLowerCase().includes(q) ||
-        (s.student_id && s.student_id.toLowerCase().includes(q)) ||
+        s.nome.toLowerCase().includes(q) ||
+        (s.matricula && s.matricula.toLowerCase().includes(q)) ||
         (s.campus && s.campus.toLowerCase().includes(q))
       );
     })
@@ -257,11 +256,11 @@ const Students = () => {
               <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[25%] cursor-pointer select-none" onClick={() => handleSort("name")}>
-                      <span className="flex items-center">Nome <SortIcon field="name" /></span>
+                    <TableHead className="w-[25%] cursor-pointer select-none" onClick={() => handleSort("nome")}>
+                      <span className="flex items-center">Nome <SortIcon field="nome" /></span>
                     </TableHead>
-                    <TableHead className="w-[12%] cursor-pointer select-none" onClick={() => handleSort("student_id")}>
-                      <span className="flex items-center">Matrícula <SortIcon field="student_id" /></span>
+                    <TableHead className="w-[12%] cursor-pointer select-none" onClick={() => handleSort("matricula")}>
+                      <span className="flex items-center">Matrícula <SortIcon field="matricula" /></span>
                     </TableHead>
                     <TableHead className="w-[14%] cursor-pointer select-none" onClick={() => handleSort("campus")}>
                       <span className="flex items-center">Sede <SortIcon field="campus" /></span>
@@ -278,8 +277,8 @@ const Students = () => {
                 <TableBody>
                   {filtered.map((student) => (
                     <TableRow key={student.id}>
-                      <TableCell className="font-medium">{student.name}</TableCell>
-                      <TableCell>{student.student_id || "—"}</TableCell>
+                      <TableCell className="font-medium">{student.nome}</TableCell>
+                      <TableCell>{student.matricula || "—"}</TableCell>
                       <TableCell>{student.campus || "—"}</TableCell>
                       <TableCell>{student.foreign_language || "—"}</TableCell>
                       <TableCell className="truncate max-w-[150px]">{student.email || "—"}</TableCell>

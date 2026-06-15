@@ -92,7 +92,7 @@ const EssayScores = () => {
         return;
       }
 
-      const studentIds = (enrollments || []).map((e: any) => e.student_id).filter(Boolean);
+      const studentIds = (enrollments || []).map((e: any) => e.matricula).filter(Boolean);
 
       if (studentIds.length === 0) {
         setStudents([]);
@@ -103,7 +103,7 @@ const EssayScores = () => {
       // 2. Buscar dados dos alunos separadamente (sem FK join)
       const [{ data: studentsData }, { data: corrections }] = await Promise.all([
         supabase
-          .from("students")
+          .from("alunos")
           .select("id, name, student_id, campus")
           .in("id", studentIds),
         supabase
@@ -116,20 +116,20 @@ const EssayScores = () => {
       const corrByMatricula = new Map<string, any>();
       for (const c of (corrections as any[]) || []) {
         if (c.student_name) corrByName.set(c.student_name, c);
-        if (c.student_id) corrByMatricula.set(c.student_id, c);
+        if (c.matricula) corrByMatricula.set(c.matricula, c);
       }
 
       const rows: StudentEssay[] = ((studentsData as any[]) || [])
-        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+        .sort((a: any, b: any) => a.nome.localeCompare(b.nome))
         .map((s: any) => {
           const corr =
-            (s.student_id && corrByMatricula.get(s.student_id)) ||
-            corrByName.get(s.name) ||
+            (s.matricula && corrByMatricula.get(s.matricula)) ||
+            corrByName.get(s.nome) ||
             null;
           return {
             studentId: s.id,
-            studentName: s.name,
-            studentMatricula: s.student_id,
+            studentName: s.nome,
+            studentMatricula: s.matricula,
             campus: s.campus,
             correctionId: corr?.id || null,
             essayScore: corr?.essay_score ?? null,
@@ -334,7 +334,7 @@ const EssayScores = () => {
               <SelectContent>
                 {templates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name} — {t.exam_type} ({t.total_questions} questões)
+                    {t.nome} — {t.exam_type} ({t.total_questions} questões)
                   </SelectItem>
                 ))}
               </SelectContent>

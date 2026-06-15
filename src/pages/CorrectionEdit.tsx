@@ -139,17 +139,17 @@ const CorrectionEdit = () => {
 
       // Buscar aluno por matrícula ou nome
       let studentRow: { id: string; foreign_language: string | null } | null = null;
-      if (corr.student_id) {
+      if (corr.matricula) {
         const { data } = await supabase
-          .from("students")
+          .from("alunos")
           .select("id, foreign_language")
-          .eq("student_id", corr.student_id)
+          .eq("student_id", corr.matricula)
           .maybeSingle();
         studentRow = data as any;
       }
       if (!studentRow) {
         const { data } = await supabase
-          .from("students")
+          .from("alunos")
           .select("id, foreign_language")
           .eq("name", corr.student_name)
           .maybeSingle();
@@ -281,7 +281,7 @@ const CorrectionEdit = () => {
     setSavingLang(true);
     try {
       if (studentDbId) {
-        await supabase.from("students").update({ foreign_language: newLang }).eq("id", studentDbId);
+        await supabase.from("alunos").update({ foreign_language: newLang }).eq("id", studentDbId);
       }
       if (scan) {
         await supabase.from("scan_submissions").update({ language: newLang }).eq("id", scan.id);
@@ -336,9 +336,9 @@ const CorrectionEdit = () => {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="font-bold truncate">{correction.student_name}</h1>
-              {correction.student_id && <Badge variant="outline">Mat. {correction.student_id}</Badge>}
+              {correction.matricula && <Badge variant="outline">Mat. {correction.matricula}</Badge>}
               <Badge variant="secondary">{template.exam_type}</Badge>
-              <span className="text-sm text-muted-foreground truncate">• {template.name}</span>
+              <span className="text-sm text-muted-foreground truncate">• {template.nome}</span>
             </div>
             <div className="text-xs text-muted-foreground">
               Nota: <strong>{(correction.total_score ?? 0).toFixed(1)} / {(correction.max_score ?? 0).toFixed(1)}</strong>

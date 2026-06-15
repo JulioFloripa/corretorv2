@@ -75,7 +75,7 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
 
   const loadStudents = async () => {
     const { data } = await supabase
-      .from("students")
+      .from("alunos")
       .select("id, name, student_id, campus, foreign_language")
       .order("name");
     setStudents(data || []);
@@ -115,7 +115,7 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
       .from("corrections")
       .select("id")
       .eq("template_id", selectedTemplateId)
-      .eq("student_name", selectedStudent.name)
+      .eq("student_name", selectedStudent.nome)
       .maybeSingle();
 
     if (existing) {
@@ -172,8 +172,8 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
         .insert({
           user_id: user.id,
           template_id: selectedTemplateId,
-          student_name: selectedStudent.name,
-          student_id: selectedStudent.student_id,
+          student_name: selectedStudent.nome,
+          student_id: selectedStudent.matricula,
           total_score: totalScore,
           max_score: maxScore,
           percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
@@ -206,8 +206,8 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
   const filteredStudents = students.filter((s) => {
     const term = studentSearch.toLowerCase();
     return (
-      s.name.toLowerCase().includes(term) ||
-      (s.student_id && s.student_id.toLowerCase().includes(term))
+      s.nome.toLowerCase().includes(term) ||
+      (s.matricula && s.matricula.toLowerCase().includes(term))
     );
   });
 
@@ -226,7 +226,7 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
           <DialogDescription>
             {step === "select"
               ? "Selecione o gabarito e o aluno cadastrado"
-              : `Preencha as respostas de ${selectedStudent?.name}`}
+              : `Preencha as respostas de ${selectedStudent?.nome}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -241,7 +241,7 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
                 <SelectContent>
                   {templates.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.exam_type} - {t.total_questions}q)
+                      {t.nome} ({t.exam_type} - {t.total_questions}q)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -285,8 +285,8 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
                         className={`cursor-pointer ${selectedStudent?.id === s.id ? "bg-primary/10" : ""}`}
                         onClick={() => setSelectedStudent(s)}
                       >
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell>{s.student_id || "-"}</TableCell>
+                        <TableCell className="font-medium">{s.nome}</TableCell>
+                        <TableCell>{s.matricula || "-"}</TableCell>
                         <TableCell>{s.campus || "-"}</TableCell>
                         <TableCell>
                           {selectedStudent?.id === s.id && (
@@ -305,7 +305,7 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
         {step === "answers" && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Prova: <strong>{selectedTemplate?.name}</strong></span>
+              <span>Prova: <strong>{selectedTemplate?.nome}</strong></span>
               <span>•</span>
               <span>Respondidas: <strong>{answeredCount}/{questions.length}</strong></span>
             </div>

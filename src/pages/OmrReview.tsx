@@ -73,7 +73,7 @@ const OmrReview = () => {
       if (!session) return navigate("/auth");
 
       const [{ data: tpl }, { data: subs }, { data: qs }, { data: studs }] = await Promise.all([
-        supabase.from("templates").select("name").eq("id", templateId).maybeSingle(),
+        supabase.from("templates").select("nome").eq("id", templateId).maybeSingle(),
         supabase
           .from("scan_submissions")
           .select("id, scan_image_path, qr_data, detected_answers, read_errors, student_id, answer_sheet_id, manual_corrections, success, language")
@@ -86,7 +86,7 @@ const OmrReview = () => {
           .select("question_number, question_type, num_propositions")
           .eq("template_id", templateId)
           .order("question_number"),
-        supabase.from("students").select("id, name, student_id").order("name"),
+        supabase.from("alunos").select("id, nome, matricula").order("nome"),
       ]);
 
       setTemplateName(tpl?.name || "");

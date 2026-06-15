@@ -16,10 +16,10 @@ import { useCampuses } from "@/hooks/use-campuses";
 
 interface Student {
   id: string;
-  name: string;
-  student_id: string | null;
+  nome: string;
+  matricula: string | null;
   campus: string | null;
-  class_id?: string | null;
+  turma_id?: string | null;
 }
 
 interface ClassRow {
@@ -53,7 +53,7 @@ const OmrEnroll = () => {
 
       const [{ data: tpl }, { data: studs }, { data: enr }, { data: cls }] = await Promise.all([
         supabase.from("templates").select("name").eq("id", templateId).maybeSingle(),
-        supabase.from("students").select("id, name, student_id, campus, class_id").order("name"),
+        supabase.from("alunos").select("id, nome, matricula, campus, turma_id").order("nome"),
         supabase.from("template_students").select("student_id").eq("template_id", templateId),
         supabase.from("classes").select("id, campus, name, year").order("campus").order("name"),
       ]);
@@ -72,8 +72,8 @@ const OmrEnroll = () => {
       const term = search.toLowerCase();
       const matchesSearch =
         !term ||
-        s.name.toLowerCase().includes(term) ||
-        (s.student_id || "").toLowerCase().includes(term);
+        s.nome.toLowerCase().includes(term) ||
+        (s.matricula || "").toLowerCase().includes(term);
       const matchesCampus = campusFilter === "TODAS" || s.campus === campusFilter;
       return matchesSearch && matchesCampus;
     });
@@ -105,7 +105,7 @@ const OmrEnroll = () => {
 
   // Liberar prova para uma turma inteira: marca todos os alunos da turma
   const enrollWholeClass = (classId: string) => {
-    const studentIds = students.filter((s) => s.class_id === classId).map((s) => s.id);
+    const studentIds = students.filter((s) => s.turma_id === classId).map((s) => s.id);
     if (studentIds.length === 0) {
       toast({ title: "Turma vazia", description: "Esta turma ainda não tem alunos vinculados.", variant: "destructive" });
       return;
@@ -292,8 +292,8 @@ const OmrEnroll = () => {
                         <TableCell>
                           <Checkbox checked={enrolledIds.has(s.id)} onCheckedChange={() => toggle(s.id)} />
                         </TableCell>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell>{s.student_id || "-"}</TableCell>
+                        <TableCell className="font-medium">{s.nome}</TableCell>
+                        <TableCell>{s.matricula || "-"}</TableCell>
                         <TableCell>{s.campus || "-"}</TableCell>
                       </TableRow>
                     ))

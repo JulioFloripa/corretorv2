@@ -141,9 +141,9 @@ Deno.serve(async (req) => {
       let sheetDbId: string | null = null;
       if (r.student_id) {
         const { data: stu } = await supabase
-          .from("students")
+          .from("alunos")
           .select("id")
-          .eq("student_id", String(r.student_id))
+          .eq("matricula", String(r.student_id))
           .maybeSingle();
         if (stu) {
           studentDbId = stu.id;

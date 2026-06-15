@@ -30,19 +30,19 @@ export async function recalculateByTemplate(templateId: string): Promise<{ succe
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id ?? "";
   const { data: allStudents } = await supabase
-    .from("students")
+    .from("alunos")
     .select("name, student_id, foreign_language")
     .eq("user_id", userId);
 
   const studentLangMap = new Map<string, string>();
   (allStudents || []).forEach(s => {
-    if (s.student_id) studentLangMap.set(`id:${s.student_id}`, s.foreign_language || "Inglês");
-    studentLangMap.set(`name:${s.name}`, s.foreign_language || "Inglês");
+    if (s.matricula) studentLangMap.set(`id:${s.matricula}`, s.foreign_language || "Inglês");
+    studentLangMap.set(`name:${s.nome}`, s.foreign_language || "Inglês");
   });
 
   const getStudentLanguage = (correction: { student_name: string; student_id: string | null }): string => {
-    if (correction.student_id && studentLangMap.has(`id:${correction.student_id}`)) {
-      return studentLangMap.get(`id:${correction.student_id}`)!;
+    if (correction.matricula && studentLangMap.has(`id:${correction.matricula}`)) {
+      return studentLangMap.get(`id:${correction.matricula}`)!;
     }
     return studentLangMap.get(`name:${correction.student_name}`) || "Inglês";
   };

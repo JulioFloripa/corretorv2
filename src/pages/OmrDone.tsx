@@ -102,9 +102,9 @@ const OmrDone = () => {
         .eq("template_id", templateId),
     ]);
 
-    setTemplateName(tpl?.name || "");
+    setTemplateName(tpl?.nome || "");
 
-    const studentIds = ((enrollments as any[]) || []).map((e: any) => e.student_id).filter(Boolean);
+    const studentIds = ((enrollments as any[]) || []).map((e: any) => e.matricula).filter(Boolean);
 
     let students: EnrolledStudent[] = [];
     if (studentIds.length > 0) {
@@ -112,7 +112,7 @@ const OmrDone = () => {
         .from("students")
         .select("id, name, student_id, campus")
         .in("id", studentIds);
-      students = ((studentsData as any[]) || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
+      students = ((studentsData as any[]) || []).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
     }
 
     setEnrolledStudents(students);
@@ -124,11 +124,11 @@ const OmrDone = () => {
   const studentRows = useMemo<StudentRow[]>(() => {
     const subsByStudent = new Map<string, ScanSubmission>();
     for (const sub of submissions) {
-      if (sub.student_id && !sub.discarded) {
+      if (sub.matricula && !sub.discarded) {
         // Se houver múltiplos scans para o mesmo aluno, priorizar o revisado
-        const existing = subsByStudent.get(sub.student_id);
+        const existing = subsByStudent.get(sub.matricula);
         if (!existing || (sub.reviewed && !existing.reviewed)) {
-          subsByStudent.set(sub.student_id, sub);
+          subsByStudent.set(sub.matricula, sub);
         }
       }
     }
@@ -148,7 +148,7 @@ const OmrDone = () => {
       } else if (
         scan.success === false ||
         (Array.isArray(scan.read_errors) && scan.read_errors.length > 0) ||
-        !scan.student_id
+        !scan.matricula
       ) {
         if (scan.reviewed) {
           status = "approved";
@@ -176,7 +176,7 @@ const OmrDone = () => {
   // ──── Scans sem aluno (órfãos) ────
   const orphanScans = useMemo(() => {
     const enrolledIds = new Set(enrolledStudents.map((s) => s.id));
-    return submissions.filter((sub) => !sub.discarded && (!sub.student_id || !enrolledIds.has(sub.student_id)));
+    return submissions.filter((sub) => !sub.discarded && (!sub.matricula || !enrolledIds.has(sub.matricula)));
   }, [submissions, enrolledStudents]);
 
   // ──── Contadores ────
@@ -196,8 +196,8 @@ const OmrDone = () => {
     return studentRows.filter((row) => {
       const matchesSearch =
         !search ||
-        row.student.name.toLowerCase().includes(search.toLowerCase()) ||
-        (row.student.student_id || "").toLowerCase().includes(search.toLowerCase());
+        row.student.nome.toLowerCase().includes(search.toLowerCase()) ||
+        (row.student.matricula || "").toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === "all" || row.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -262,7 +262,7 @@ const OmrDone = () => {
           .in("id", [...byTemplate.keys()]);
         const groups: MigrationGroup[] = [...byTemplate.entries()].map(([tid, ids]) => ({
           templateId: tid,
-          templateName: ((tpls as any[]) || []).find((t: any) => t.id === tid)?.name || tid.slice(0, 8) + "…",
+          templateName: ((tpls as any[]) || []).find((t: any) => t.id === tid)?.nome || tid.slice(0, 8) + "…",
           count: ids.length,
           subIds: ids,
         }));
@@ -283,27 +283,27 @@ const OmrDone = () => {
       if (!questions || !subs || subs.length === 0) return;
 
       const approvedSubs = (subs as any[]).filter((s) => {
-        if (!s.student_id) return false;
+        if (!s.matricula) return false;
         if (s.reviewed) return true;
         return s.success !== false && (!s.read_errors || s.read_errors.length === 0);
       });
 
-      const studentIds = [...new Set(approvedSubs.map((s: any) => s.student_id).filter(Boolean))];
+      const studentIds = [...new Set(approvedSubs.map((s: any) => s.matricula).filter(Boolean))];
       const { data: studs } = await supabase.from("students").select("id, name, student_id, foreign_language").in("id", studentIds);
       const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
 
       let created = 0, skipped = 0, updated = 0;
 
       for (const sub of approvedSubs) {
-        if (!sub.student_id) { skipped++; continue; }
-        const student = studMap.get(sub.student_id);
+        if (!sub.matricula) { skipped++; continue; }
+        const student = studMap.get(sub.matricula);
         if (!student) { skipped++; continue; }
 
         const { data: existing } = await supabase
           .from("corrections")
           .select("id, essay_score")
           .eq("template_id", templateId)
-          .eq("student_name", student.name)
+          .eq("student_name", student.nome)
           .maybeSingle();
 
         const lang = student.foreign_language || "Inglês";
@@ -361,7 +361,7 @@ const OmrDone = () => {
             max_score: maxScore,
             percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
             status: "completed",
-            student_id: student.student_id,
+            student_id: student.matricula,
           }).eq("id", correctionId);
           updated++;
         } else {
@@ -370,8 +370,8 @@ const OmrDone = () => {
             .insert({
               user_id: user.id,
               template_id: templateId,
-              student_name: student.name,
-              student_id: student.student_id,
+              student_name: student.nome,
+              student_id: student.matricula,
               total_score: totalScore,
               max_score: maxScore,
               percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
@@ -588,8 +588,8 @@ const OmrDone = () => {
                             className={row.status === "missing" ? "bg-destructive/5" : row.status === "problem" ? "bg-amber-500/5" : ""}
                           >
                             <TableCell>{statusIcon(row.status)}</TableCell>
-                            <TableCell className="font-medium">{row.student.name}</TableCell>
-                            <TableCell className="text-muted-foreground">{row.student.student_id || "-"}</TableCell>
+                            <TableCell className="font-medium">{row.student.nome}</TableCell>
+                            <TableCell className="text-muted-foreground">{row.student.matricula || "-"}</TableCell>
                             <TableCell className="text-muted-foreground">{row.student.campus || "-"}</TableCell>
                             <TableCell className="text-right">{statusBadge(row.status, row.statusLabel)}</TableCell>
                           </TableRow>

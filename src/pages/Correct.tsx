@@ -185,12 +185,12 @@ const Correct = () => {
   // Detectar conflitos de nomes e resolver antes de processar
   const detectAndResolveConflicts = async (parsedData: any[]): Promise<boolean> => {
     const { data: allStudents } = await supabase
-      .from("students")
-      .select("id, student_id, name");
+      .from("alunos")
+      .select("id, matricula, nome");
 
     const studentByIdMap = new Map<string, { id: string; name: string }>();
     (allStudents || []).forEach(s => {
-      if (s.student_id) studentByIdMap.set(s.student_id, { id: s.id, name: s.name });
+      if (s.matricula) studentByIdMap.set(s.matricula, { id: s.id, name: s.nome });
     });
 
     const conflicts: NameConflict[] = [];
@@ -208,10 +208,10 @@ const Correct = () => {
       seen.add(studentId);
 
       const existing = studentByIdMap.get(studentId);
-      if (existing && existing.name.toLowerCase() !== studentName.toLowerCase()) {
+      if (existing && existing.nome.toLowerCase() !== studentName.toLowerCase()) {
         conflicts.push({
           studentId,
-          existingName: existing.name,
+          existingName: existing.nome,
           newName: studentName,
           existingStudentDbId: existing.id,
         });
@@ -240,8 +240,8 @@ const Correct = () => {
         : conflict.existingName;
 
       // Atualizar nome na tabela students
-      await supabase.from("students")
-        .update({ name: chosenName })
+      await supabase.from("alunos")
+        .update({ nome: chosenName })
         .eq("id", conflict.existingStudentDbId);
 
       // Atualizar nome em todas as correções com essa matrícula
@@ -369,14 +369,14 @@ const Correct = () => {
 
         // Pré-carregar alunos existentes (agora busca todos, não apenas do user)
         const { data: allExistingStudents } = await supabase
-          .from("students")
-          .select("id, student_id, name");
+          .from("alunos")
+          .select("id, matricula, nome");
         
         const studentByIdMap = new Map<string, string>();
         const studentByNameMap = new Map<string, string>();
         (allExistingStudents || []).forEach(s => {
-          if (s.student_id) studentByIdMap.set(s.student_id, s.id);
-          else studentByNameMap.set(s.name, s.id);
+          if (s.matricula) studentByIdMap.set(s.matricula, s.id);
+          else studentByNameMap.set(s.nome, s.id);
         });
 
         const BATCH_SIZE = 10;
@@ -417,21 +417,21 @@ const Correct = () => {
               // Registrar/atualizar aluno na tabela students (student_id como chave global)
               if (studentId) {
                 if (studentByIdMap.has(studentId)) {
-                  const updateData: any = { name: studentName };
+                  const updateData: any = { nome: studentName };
                   if (studentCampus) updateData.campus = studentCampus;
                   if (studentLanguage) updateData.foreign_language = studentLanguage;
-                  await supabase.from("students").update(updateData)
+                  await supabase.from("alunos").update(updateData)
                     .eq("id", studentByIdMap.get(studentId)!);
                 } else {
-                  const { data: inserted } = await supabase.from("students").insert({
-                    user_id: userId, name: studentName, student_id: studentId,
+                  const { data: inserted } = await supabase.from("alunos").insert({
+                    nome: studentName, matricula: studentId,
                     campus: studentCampus, foreign_language: studentLanguage,
                   }).select("id").single();
                   studentByIdMap.set(studentId, inserted?.id || "inserted");
                 }
               } else if (!studentByNameMap.has(studentName)) {
-                const { data: inserted } = await supabase.from("students").insert({
-                  user_id: userId, name: studentName,
+                const { data: inserted } = await supabase.from("alunos").insert({
+                  nome: studentName,
                   campus: studentCampus, foreign_language: studentLanguage,
                 }).select("id").single();
                 studentByNameMap.set(studentName, inserted?.id || "inserted");

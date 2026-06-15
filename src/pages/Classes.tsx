@@ -24,10 +24,10 @@ interface ClassRow {
 
 interface Student {
   id: string;
-  name: string;
-  student_id: string | null;
+  nome: string;
+  matricula: string | null;
   campus: string | null;
-  class_id: string | null;
+  turma_id: string | null;
 }
 
 const Classes = () => {
@@ -55,12 +55,12 @@ const Classes = () => {
     setLoading(true);
     const [{ data: cls }, { data: studs }] = await Promise.all([
       supabase.from("classes").select("id, campus, name, year").order("campus").order("name"),
-      supabase.from("students").select("id, name, student_id, campus, class_id").order("name"),
+      supabase.from("alunos").select("id, nome, matricula, campus, turma_id").order("nome"),
     ]);
     const studentsList = (studs || []) as Student[];
     const counts = new Map<string, number>();
     studentsList.forEach((s) => {
-      if (s.class_id) counts.set(s.class_id, (counts.get(s.class_id) || 0) + 1);
+      if (s.turma_id) counts.set(s.turma_id, (counts.get(s.turma_id) || 0) + 1);
     });
     const classList = (cls || []).map((c: any) => ({ ...c, student_count: counts.get(c.id) || 0 }));
     setClasses(classList);
@@ -138,7 +138,7 @@ const Classes = () => {
 
   const openAssignDialog = (c: ClassRow) => {
     setAssignClass(c);
-    const ids = new Set(students.filter((s) => s.class_id === c.id).map((s) => s.id));
+    const ids = new Set(students.filter((s) => s.turma_id === c.id).map((s) => s.id));
     setAssignSelected(ids);
     setAssignSearch("");
     setOpenAssign(true);
@@ -151,8 +151,8 @@ const Classes = () => {
       .filter((s) => !s.campus || s.campus === assignClass.campus)
       .filter((s) =>
         !term ||
-        s.name.toLowerCase().includes(term) ||
-        (s.student_id || "").toLowerCase().includes(term),
+        s.nome.toLowerCase().includes(term) ||
+        (s.matricula || "").toLowerCase().includes(term),
       );
   }, [students, assignClass, assignSearch]);
 
@@ -169,22 +169,22 @@ const Classes = () => {
     if (!assignClass) return;
     try {
       const currentlyInClass = new Set(
-        students.filter((s) => s.class_id === assignClass.id).map((s) => s.id),
+        students.filter((s) => s.turma_id === assignClass.id).map((s) => s.id),
       );
       const toAdd = [...assignSelected].filter((id) => !currentlyInClass.has(id));
       const toRemove = [...currentlyInClass].filter((id) => !assignSelected.has(id));
 
       if (toAdd.length > 0) {
         const { error } = await supabase
-          .from("students")
-          .update({ class_id: assignClass.id })
+          .from("alunos")
+          .update({ turma_id: assignClass.id })
           .in("id", toAdd);
         if (error) throw error;
       }
       if (toRemove.length > 0) {
         const { error } = await supabase
-          .from("students")
-          .update({ class_id: null })
+          .from("alunos")
+          .update({ turma_id: null })
           .in("id", toRemove);
         if (error) throw error;
       }
@@ -346,15 +346,15 @@ const Classes = () => {
                   <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Nenhum aluno</TableCell></TableRow>
                 ) : (
                   assignStudents.map((s) => {
-                    const currentClass = classes.find((c) => c.id === s.class_id);
-                    const inOther = s.class_id && s.class_id !== assignClass?.id;
+                    const currentClass = classes.find((c) => c.id === s.turma_id);
+                    const inOther = s.turma_id && s.turma_id !== assignClass?.id;
                     return (
                       <TableRow key={s.id} className="cursor-pointer" onClick={() => toggleAssign(s.id)}>
                         <TableCell>
                           <Checkbox checked={assignSelected.has(s.id)} onCheckedChange={() => toggleAssign(s.id)} />
                         </TableCell>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell>{s.student_id || "-"}</TableCell>
+                        <TableCell className="font-medium">{s.nome}</TableCell>
+                        <TableCell>{s.matricula || "-"}</TableCell>
                         <TableCell>
                           {currentClass ? (
                             <Badge variant={inOther ? "destructive" : "secondary"}>
