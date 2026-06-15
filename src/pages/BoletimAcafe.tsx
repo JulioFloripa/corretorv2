@@ -187,12 +187,12 @@ const BoletimAcafe = () => {
 
     const { data } = await supabase
       .from("alunos")
-      .select("name, campus, foreign_language, email")
-      .in("name", names);
+      .select("nome, campus, foreign_language, email")
+      .in("nome", names);
 
     if (data) {
       const map: Record<string, StudentMeta> = {};
-      data.forEach((s: { name: string; campus: string | null; foreign_language: string | null; email: string | null }) => {
+      data.forEach((s: { nome: string; campus: string | null; foreign_language: string | null; email: string | null }) => {
         map[s.nome] = { campus: s.campus, foreign_language: s.foreign_language, email: s.email };
       });
       setStudentsMetaMap(map);
@@ -363,7 +363,7 @@ const BoletimAcafe = () => {
     const doc = new jsPDF();
     const logoData = await loadLogoBase64();
     const sorted = [...allCorrections].sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
-    const templateName = templates.find((t) => t.id === selectedTemplate)?.nome || "Simulado";
+    const templateName = templates.find((t) => t.id === selectedTemplate)?.name || "Simulado";
 
     const pageW = doc.internal.pageSize.getWidth();
     if (logoData) {
@@ -392,7 +392,7 @@ const BoletimAcafe = () => {
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("Pos.", colPos.pos, y);
-      doc.text("Aluno", colPos.nome, y);
+      doc.text("Aluno", colPos.name, y);
       doc.text("Sede", colPos.campus, y);
       doc.text("Acertos", colPos.score, y);
       doc.text("%", colPos.pct, y);
@@ -427,7 +427,7 @@ const BoletimAcafe = () => {
       doc.text(`${i + 1}º`, colPos.pos, y);
 
       const name = c.student_name.length > 40 ? c.student_name.substring(0, 40) + "..." : c.student_name;
-      doc.text(name, colPos.nome, y);
+      doc.text(name, colPos.name, y);
       doc.text(meta?.campus || "-", colPos.campus, y);
       doc.text(`${c.total_score || 0}/${c.max_score || 0}`, colPos.score, y);
 
@@ -553,7 +553,7 @@ const BoletimAcafe = () => {
     setSendingEmail(true);
     try {
       const pdfBase64 = await generatePDFBase64(selectedStudent, studentAnswers);
-      const templateName = templates.find((t) => t.id === selectedTemplate)?.nome || "Simulado";
+      const templateName = templates.find((t) => t.id === selectedTemplate)?.name || "Simulado";
 
       const { data, error } = await supabase.functions.invoke('send-boletim-email', {
         body: {
@@ -580,7 +580,7 @@ const BoletimAcafe = () => {
     setSendingAllEmails(true);
     let sent = 0;
     let failed = 0;
-    const templateName = templates.find((t) => t.id === selectedTemplate)?.nome || "Simulado";
+    const templateName = templates.find((t) => t.id === selectedTemplate)?.name || "Simulado";
 
     try {
       for (const correction of allCorrections) {
@@ -688,7 +688,7 @@ const BoletimAcafe = () => {
                   <SelectContent>
                     {templates.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.nome} ({t.total_questions} questões)
+                        {t.name} ({t.total_questions} questões)
                       </SelectItem>
                     ))}
                   </SelectContent>
