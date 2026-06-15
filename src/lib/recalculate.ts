@@ -12,10 +12,10 @@ export async function recalculateByTemplate(templateId: string): Promise<{ succe
     return { success: false, correctionsUpdated: 0, error: qError?.message || "Erro ao buscar questões do gabarito" };
   }
 
-  // 2. Fetch all corrections for this template (with student info for language)
+  // 2. Fetch all corrections for this template
   const { data: corrections, error: cError } = await supabase
     .from("corrections")
-    .select("id, student_name, student_id")
+    .select("id, student_name, student_id, language_variant")
     .eq("template_id", templateId);
 
   if (cError || !corrections) {
@@ -25,27 +25,6 @@ export async function recalculateByTemplate(templateId: string): Promise<{ succe
   if (corrections.length === 0) {
     return { success: true, correctionsUpdated: 0 };
   }
-
-  // Pre-load students to get their foreign_language
-  const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id ?? "";
-  const { data: allStudents } = await supabase
-    .from("alunos")
-    .select("name, student_id, foreign_language")
-    .eq("user_id", userId);
-
-  const studentLangMap = new Map<string, string>();
-  (allStudents || []).forEach(s => {
-    if (s.matricula) studentLangMap.set(`id:${s.matricula}`, s.foreign_language || "Inglês");
-    studentLangMap.set(`name:${s.nome}`, s.foreign_language || "Inglês");
-  });
-
-  const getStudentLanguage = (correction: { student_name: string; student_id: string | null }): string => {
-    if (correction.matricula && studentLangMap.has(`id:${correction.matricula}`)) {
-      return studentLangMap.get(`id:${correction.matricula}`)!;
-    }
-    return studentLangMap.get(`name:${correction.student_name}`) || "Inglês";
-  };
 
   let correctionsUpdated = 0;
 
@@ -58,12 +37,14 @@ export async function recalculateByTemplate(templateId: string): Promise<{ succe
 
     if (aError || !answers) continue;
 
-    // Filter questions by student's language
-    const studentLang = getStudentLanguage(correction);
+    // Usar language_variant da própria correção (salvo no calculateGrades)
+    // Se null → template não tem variantes → contar todas as questões
+    const corrLang = (correction as any).language_variant as string | null;
     const filteredQuestions = questions.filter(q => {
       const variant = (q as any).language_variant;
-      if (!variant) return true;
-      return variant === studentLang;
+      if (!variant) return true;        // questão sem variante: sempre incluir
+      if (!corrLang) return true;       // template sem variantes: incluir tudo
+      return variant === corrLang;
     });
 
     const questionMap = new Map(filteredQuestions.map(q => [q.question_number, q]));

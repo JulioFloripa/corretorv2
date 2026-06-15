@@ -275,7 +275,7 @@ const OmrDone = () => {
         supabase.from("template_questions").select("*").eq("template_id", templateId).order("question_number"),
         supabase
           .from("scan_submissions")
-          .select("id, student_id, detected_answers, reviewed, success, read_errors")
+          .select("id, student_id, detected_answers, reviewed, success, read_errors, language")
           .eq("template_id", templateId)
           .eq("discarded", false),
       ]);
@@ -287,6 +287,29 @@ const OmrDone = () => {
         if (s.reviewed) return true;
         return s.success !== false && (!s.read_errors || s.read_errors.length === 0);
       });
+
+      // Construir mapa de variantes de idioma por questão (para auto-detecção)
+      const qsByLang = new Map<string, number[]>();
+      for (const q of (questions as any[])) {
+        if (q.language_variant) {
+          if (!qsByLang.has(q.language_variant)) qsByLang.set(q.language_variant, []);
+          qsByLang.get(q.language_variant)!.push(q.question_number);
+        }
+      }
+      const hasLangVariants = qsByLang.size > 0;
+
+      const autoDetectLang = (detected: any): string | null => {
+        if (!hasLangVariants) return null;
+        let best = "Inglês"; let bestCount = -1;
+        for (const [lang, nums] of qsByLang) {
+          const count = (nums as number[]).filter((n) => {
+            const v = detected?.[`q${n}`];
+            return v != null && v !== "" && v !== "null";
+          }).length;
+          if (count > bestCount) { bestCount = count; best = lang; }
+        }
+        return best;
+      };
 
       const studentIds = [...new Set(approvedSubs.map((s: any) => s.student_id).filter(Boolean))];
       const { data: studs } = await supabase.from("alunos").select("id, nome, matricula, foreign_language").in("id", studentIds);
@@ -306,7 +329,10 @@ const OmrDone = () => {
           .eq("student_name", student.nome)
           .maybeSingle();
 
-        const lang = student.foreign_language || "Inglês";
+        // Idioma: 1) explícito no scan, 2) auto-detectado, 3) fallback do aluno
+        const lang: string | null = hasLangVariants
+          ? (sub.language || autoDetectLang(sub.detected_answers) || student.foreign_language || "Inglês")
+          : null;
         const filteredQs = (questions as any[]).filter((q) => !q.language_variant || q.language_variant === lang);
 
         let totalScore = 0, maxScore = 0;
@@ -362,6 +388,7 @@ const OmrDone = () => {
             percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
             status: "completed",
             student_id: student.matricula,
+            ...(lang ? { language_variant: lang } : {}),
           }).eq("id", correctionId);
           updated++;
         } else {
@@ -376,6 +403,7 @@ const OmrDone = () => {
               max_score: maxScore,
               percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
               status: "completed",
+              ...(lang ? { language_variant: lang } : {}),
             })
             .select("id")
             .single();

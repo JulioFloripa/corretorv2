@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Check, X, Loader2, AlertCircle, CheckCircle2, AlertTriangle, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Check, X, Loader2, AlertCircle, CheckCircle2, AlertTriangle, Trash2, Languages } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { getScanSignedUrl } from "@/lib/omr-client";
 import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
@@ -33,6 +33,7 @@ interface Question {
   question_number: number;
   question_type: string;
   num_propositions: number | null;
+  language_variant?: string | null;
 }
 
 interface Student {
@@ -65,6 +66,13 @@ const OmrReview = () => {
   const [orphanDialog, setOrphanDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Variantes de idioma do template
+  const [languageVariants, setLanguageVariants] = useState<string[]>([]);
+  const [questionsByLang, setQuestionsByLang] = useState<Map<string, number[]>>(new Map());
+  // Passo 2 do dialog de vincular: confirmação de idioma
+  const [linkPendingStudentId, setLinkPendingStudentId] = useState<string | null>(null);
+  const [linkSelectedLanguage, setLinkSelectedLanguage] = useState<string>("");
+
   // Carregar dados iniciais
   useEffect(() => {
     if (!templateId) return;
@@ -83,7 +91,7 @@ const OmrReview = () => {
           .order("created_at"),
         supabase
           .from("template_questions")
-          .select("question_number, question_type, num_propositions")
+          .select("question_number, question_type, num_propositions, language_variant")
           .eq("template_id", templateId)
           .order("question_number"),
         supabase.from("alunos").select("id, nome, matricula").order("nome"),
@@ -92,8 +100,21 @@ const OmrReview = () => {
       setTemplateName(tpl?.name || "");
       const subsData = (subs as any) || [];
       setSubmissions(subsData);
-      setQuestions((qs as any) || []);
+      const qsList = ((qs as any) || []) as Question[];
+      setQuestions(qsList);
       setStudents((studs as any) || []);
+
+      // Extrair variantes de idioma do template
+      const langMap = new Map<string, number[]>();
+      for (const q of qsList) {
+        if (q.language_variant) {
+          if (!langMap.has(q.language_variant)) langMap.set(q.language_variant, []);
+          langMap.get(q.language_variant)!.push(q.question_number);
+        }
+      }
+      setLanguageVariants([...langMap.keys()]);
+      setQuestionsByLang(langMap);
+
       setLoading(false);
 
       if (subsData.length === 0) {
@@ -165,20 +186,51 @@ const OmrReview = () => {
     setEditingQ(null);
   };
 
-  const linkStudent = async (studentId: string) => {
+  const autoDetectLanguage = useCallback((detected: Record<string, string | null>): string => {
+    if (questionsByLang.size === 0) return "";
+    let best = languageVariants[0] || "";
+    let bestCount = -1;
+    for (const [lang, nums] of questionsByLang) {
+      const count = nums.filter((n) => {
+        const v = detected[`q${n}`];
+        return v != null && v !== "" && v !== "null";
+      }).length;
+      if (count > bestCount) { bestCount = count; best = lang; }
+    }
+    return best;
+  }, [languageVariants, questionsByLang]);
+
+  const pickStudent = (s: Student) => {
+    if (languageVariants.length === 0) {
+      linkStudent(s.id, null);
+    } else {
+      setLinkPendingStudentId(s.id);
+      setLinkSelectedLanguage(autoDetectLanguage(answers));
+    }
+  };
+
+  const confirmLinkWithLanguage = () => {
+    if (!linkPendingStudentId) return;
+    linkStudent(linkPendingStudentId, linkSelectedLanguage || null);
+    setLinkPendingStudentId(null);
+  };
+
+  const linkStudent = async (studentId: string, language: string | null) => {
     if (!current) return;
+    const update: Record<string, any> = { student_id: studentId };
+    if (language) update.language = language;
     const { error } = await supabase
       .from("scan_submissions")
-      .update({ student_id: studentId })
+      .update(update)
       .eq("id", current.id);
     if (error) {
       toast({ title: "Erro ao vincular aluno", description: error.message, variant: "destructive" });
       return;
     }
-    setSubmissions((prev) => prev.map((s, i) => (i === idx ? { ...s, student_id: studentId } : s)));
+    setSubmissions((prev) => prev.map((s, i) => (i === idx ? { ...s, student_id: studentId, ...(language ? { language } : {}) } : s)));
     setLinkStudentDialog(false);
     setStudentSearchTerm("");
-    toast({ title: "Aluno vinculado" });
+    toast({ title: "Aluno vinculado", description: language ? `Idioma: ${language}` : undefined });
   };
 
   const advance = () => {
@@ -206,6 +258,10 @@ const OmrReview = () => {
         if (answers[k] !== original[k]) manual[k] = answers[k];
       });
 
+      const langToSave = current.language != null
+        ? undefined
+        : (languageVariants.length > 0 ? autoDetectLanguage(answers) : undefined);
+
       const { error } = await supabase
         .from("scan_submissions")
         .update({
@@ -214,6 +270,7 @@ const OmrReview = () => {
           reviewed_at: new Date().toISOString(),
           detected_answers: answers,
           manual_corrections: manual,
+          ...(langToSave ? { language: langToSave } : {}),
         })
         .eq("id", current.id);
       if (error) throw error;
@@ -504,33 +561,63 @@ const OmrReview = () => {
       </Dialog>
 
       {/* MODAL VINCULAR ALUNO */}
-      <Dialog open={linkStudentDialog} onOpenChange={setLinkStudentDialog}>
+      <Dialog open={linkStudentDialog} onOpenChange={(o) => { setLinkStudentDialog(o); if (!o) setLinkPendingStudentId(null); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Vincular aluno a este scan</DialogTitle>
-            <DialogDescription>
-              Use quando o QR Code não foi lido corretamente.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            placeholder="Buscar nome ou matrícula..."
-            value={studentSearchTerm}
-            onChange={(e) => setStudentSearchTerm(e.target.value)}
-          />
-          <ScrollArea className="h-72 border rounded-md">
-            <div className="divide-y">
-              {filteredStudents.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => linkStudent(s.id)}
-                  className="w-full text-left p-3 hover:bg-accent transition-colors"
-                >
-                  <div className="font-medium">{s.nome}</div>
-                  <div className="text-xs text-muted-foreground">{s.matricula || "sem matrícula"}</div>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
+          {!linkPendingStudentId ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Vincular aluno a este scan</DialogTitle>
+                <DialogDescription>
+                  Use quando o QR Code não foi lido corretamente.
+                </DialogDescription>
+              </DialogHeader>
+              <Input
+                placeholder="Buscar nome ou matrícula..."
+                value={studentSearchTerm}
+                onChange={(e) => setStudentSearchTerm(e.target.value)}
+              />
+              <ScrollArea className="h-72 border rounded-md">
+                <div className="divide-y">
+                  {filteredStudents.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => pickStudent(s)}
+                      className="w-full text-left p-3 hover:bg-accent transition-colors"
+                    >
+                      <div className="font-medium">{s.nome}</div>
+                      <div className="text-xs text-muted-foreground">{s.matricula || "sem matrícula"}</div>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Languages className="h-5 w-5" /> Confirmar língua estrangeira
+                </DialogTitle>
+                <DialogDescription>
+                  Este template tem questões de idioma alternativo. Qual língua o aluno escolheu neste exame?
+                </DialogDescription>
+              </DialogHeader>
+              <RadioGroup value={linkSelectedLanguage} onValueChange={setLinkSelectedLanguage} className="gap-3">
+                {languageVariants.map((lang) => (
+                  <Label key={lang} className="flex items-center gap-3 border rounded-md p-4 cursor-pointer hover:border-primary">
+                    <RadioGroupItem value={lang} />
+                    <span className="font-medium">{lang}</span>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {(questionsByLang.get(lang) || []).length} questão(ões) detectadas
+                    </span>
+                  </Label>
+                ))}
+              </RadioGroup>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setLinkPendingStudentId(null)}>Voltar</Button>
+                <Button onClick={confirmLinkWithLanguage} disabled={!linkSelectedLanguage}>Confirmar</Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
