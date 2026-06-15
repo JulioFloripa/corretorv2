@@ -295,7 +295,7 @@ const OmrDone = () => {
       let created = 0, skipped = 0, updated = 0;
 
       for (const sub of approvedSubs) {
-        if (!sub.matricula) { skipped++; continue; }
+        if (!sub.student_id) { skipped++; continue; }
         const student = studMap.get(sub.student_id);
         if (!student) { skipped++; continue; }
 
