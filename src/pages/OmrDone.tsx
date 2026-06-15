@@ -37,8 +37,8 @@ type StudentStatus = "approved" | "problem" | "discarded" | "missing";
 
 interface EnrolledStudent {
   id: string;
-  name: string;
-  student_id: string | null;
+  nome: string;
+  matricula: string | null;
   campus: string | null;
 }
 
@@ -102,15 +102,15 @@ const OmrDone = () => {
         .eq("template_id", templateId),
     ]);
 
-    setTemplateName(tpl?.nome || "");
+    setTemplateName(tpl?.name || "");
 
-    const studentIds = ((enrollments as any[]) || []).map((e: any) => e.matricula).filter(Boolean);
+    const studentIds = ((enrollments as any[]) || []).map((e: any) => e.student_id).filter(Boolean);
 
     let students: EnrolledStudent[] = [];
     if (studentIds.length > 0) {
       const { data: studentsData } = await supabase
-        .from("students")
-        .select("id, name, student_id, campus")
+        .from("alunos")
+        .select("id, nome, matricula, campus")
         .in("id", studentIds);
       students = ((studentsData as any[]) || []).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
     }
@@ -124,11 +124,11 @@ const OmrDone = () => {
   const studentRows = useMemo<StudentRow[]>(() => {
     const subsByStudent = new Map<string, ScanSubmission>();
     for (const sub of submissions) {
-      if (sub.matricula && !sub.discarded) {
+      if (sub.student_id && !sub.discarded) {
         // Se houver múltiplos scans para o mesmo aluno, priorizar o revisado
-        const existing = subsByStudent.get(sub.matricula);
+        const existing = subsByStudent.get(sub.student_id);
         if (!existing || (sub.reviewed && !existing.reviewed)) {
-          subsByStudent.set(sub.matricula, sub);
+          subsByStudent.set(sub.student_id, sub);
         }
       }
     }
@@ -148,7 +148,7 @@ const OmrDone = () => {
       } else if (
         scan.success === false ||
         (Array.isArray(scan.read_errors) && scan.read_errors.length > 0) ||
-        !scan.matricula
+        !scan.student_id
       ) {
         if (scan.reviewed) {
           status = "approved";
@@ -176,7 +176,7 @@ const OmrDone = () => {
   // ──── Scans sem aluno (órfãos) ────
   const orphanScans = useMemo(() => {
     const enrolledIds = new Set(enrolledStudents.map((s) => s.id));
-    return submissions.filter((sub) => !sub.discarded && (!sub.matricula || !enrolledIds.has(sub.matricula)));
+    return submissions.filter((sub) => !sub.discarded && (!sub.student_id || !enrolledIds.has(sub.student_id)));
   }, [submissions, enrolledStudents]);
 
   // ──── Contadores ────
@@ -262,7 +262,7 @@ const OmrDone = () => {
           .in("id", [...byTemplate.keys()]);
         const groups: MigrationGroup[] = [...byTemplate.entries()].map(([tid, ids]) => ({
           templateId: tid,
-          templateName: ((tpls as any[]) || []).find((t: any) => t.id === tid)?.nome || tid.slice(0, 8) + "…",
+          templateName: ((tpls as any[]) || []).find((t: any) => t.id === tid)?.name || tid.slice(0, 8) + "…",
           count: ids.length,
           subIds: ids,
         }));
@@ -283,20 +283,20 @@ const OmrDone = () => {
       if (!questions || !subs || subs.length === 0) return;
 
       const approvedSubs = (subs as any[]).filter((s) => {
-        if (!s.matricula) return false;
+        if (!s.student_id) return false;
         if (s.reviewed) return true;
         return s.success !== false && (!s.read_errors || s.read_errors.length === 0);
       });
 
-      const studentIds = [...new Set(approvedSubs.map((s: any) => s.matricula).filter(Boolean))];
-      const { data: studs } = await supabase.from("students").select("id, name, student_id, foreign_language").in("id", studentIds);
+      const studentIds = [...new Set(approvedSubs.map((s: any) => s.student_id).filter(Boolean))];
+      const { data: studs } = await supabase.from("alunos").select("id, nome, matricula, foreign_language").in("id", studentIds);
       const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
 
       let created = 0, skipped = 0, updated = 0;
 
       for (const sub of approvedSubs) {
         if (!sub.matricula) { skipped++; continue; }
-        const student = studMap.get(sub.matricula);
+        const student = studMap.get(sub.student_id);
         if (!student) { skipped++; continue; }
 
         const { data: existing } = await supabase

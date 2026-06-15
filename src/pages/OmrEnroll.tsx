@@ -211,7 +211,7 @@ const OmrEnroll = () => {
                     <div key={campus}>
                       <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase">{campus}</div>
                       {list.map((c) => {
-                        const count = students.filter((s) => s.class_id === c.id).length;
+                        const count = students.filter((s) => s.turma_id === c.id).length;
                         return (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name} {c.year ? `(${c.year})` : ""} — {count} aluno(s)
