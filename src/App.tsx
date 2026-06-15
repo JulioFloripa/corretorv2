@@ -32,6 +32,7 @@ import EssayScores from "./pages/EssayScores";
 import Help from "./pages/Help";
 import ResetPassword from "./pages/ResetPassword";
 import AppLayout from "./components/AppLayout";
+import AdminUsers from "./pages/AdminUsers";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const App = () => (
             <Route path="/omr/done" element={<OmrDone />} />
             <Route path="/omr/done/:templateId" element={<OmrDone />} />
             <Route path="/corrections/:id/edit" element={<CorrectionEdit />} />
+            <Route path="/admin/usuarios" element={<AdminUsers />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

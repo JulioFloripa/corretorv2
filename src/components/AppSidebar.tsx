@@ -84,6 +84,7 @@ const groups: NavGroup[] = [
       { title: "Alunos", url: "/students", icon: Users, end: true },
       { title: "Turmas", url: "/classes", icon: GraduationCap, end: true },
       { title: "Disciplinas", url: "/disciplines", icon: BookOpen, end: true },
+      { title: "Usuários", url: "/admin/usuarios", icon: UserPlus, end: true },
     ],
   },
 ];
