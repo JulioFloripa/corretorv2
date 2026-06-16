@@ -245,8 +245,12 @@ const OmrDone = () => {
         .eq("template_id", templateId)
         .eq("discarded", false);
 
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const misfits = ((subsCheck as any[]) || []).filter(
-        (s: any) => s.qr_data?.template_id && s.qr_data.template_id !== templateId
+        (s: any) =>
+          s.qr_data?.template_id &&
+          s.qr_data.template_id !== templateId &&
+          UUID_RE.test(s.qr_data.template_id)
       );
 
       if (misfits.length > 0) {
@@ -260,15 +264,21 @@ const OmrDone = () => {
           .from("templates")
           .select("id, name")
           .in("id", [...byTemplate.keys()]);
-        const groups: MigrationGroup[] = [...byTemplate.entries()].map(([tid, ids]) => ({
-          templateId: tid,
-          templateName: ((tpls as any[]) || []).find((t: any) => t.id === tid)?.name || tid.slice(0, 8) + "…",
-          count: ids.length,
-          subIds: ids,
-        }));
-        setMigrationGroups(groups);
-        setCalculating(false);
-        return;
+        // Só migrar para templates que existem de fato
+        const existingIds = new Set(((tpls as any[]) || []).map((t: any) => t.id));
+        const groups: MigrationGroup[] = [...byTemplate.entries()]
+          .filter(([tid]) => existingIds.has(tid))
+          .map(([tid, ids]) => ({
+            templateId: tid,
+            templateName: ((tpls as any[]) || []).find((t: any) => t.id === tid)?.name || tid.slice(0, 8) + "…",
+            count: ids.length,
+            subIds: ids,
+          }));
+        if (groups.length > 0) {
+          setMigrationGroups(groups);
+          setCalculating(false);
+          return;
+        }
       }
 
       const [{ data: questions }, { data: subs }] = await Promise.all([
