@@ -455,6 +455,21 @@ const OmrReview = () => {
           </div>
 
           <ScrollArea className="flex-1">
+            {questions.length === 0 && (
+              <Alert className="m-3 border-warning">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Este gabarito não possui questões cadastradas. Acesse{" "}
+                  <button
+                    className="underline font-medium"
+                    onClick={() => navigate(`/templates/${templateId}`)}
+                  >
+                    Editar Gabarito
+                  </button>{" "}
+                  para adicionar as questões com as respostas corretas antes de revisar os scans.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3">
               {questions.map((q) => {
                 const status = getStatus(q);

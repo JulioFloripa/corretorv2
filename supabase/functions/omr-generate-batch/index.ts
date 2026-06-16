@@ -140,6 +140,7 @@ Deno.serve(async (req) => {
 
     // Payload v6: inclui total_questions e alternatives para suportar provas personalizadas
     const payload = {
+      template_id: template.id,
       template_type: String(template.exam_type || "ACAFE").toUpperCase(),
       template_name: template.name,
       total_questions: template.total_questions,

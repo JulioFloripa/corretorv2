@@ -281,6 +281,10 @@ const OmrDone = () => {
       ]);
 
       if (!questions || !subs || subs.length === 0) return;
+      if (questions.length === 0) {
+        toast({ variant: "destructive", title: "Gabarito sem questões", description: "Cadastre as questões com respostas corretas no editor do gabarito antes de calcular notas." });
+        return;
+      }
 
       const approvedSubs = (subs as any[]).filter((s) => {
         if (!s.student_id) return false;
