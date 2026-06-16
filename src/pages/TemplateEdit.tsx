@@ -213,13 +213,38 @@ const TemplateEdit = () => {
     navigate("/templates");
   };
 
-  const updateQuestion = (index: number, fields: Partial<TemplateQuestion>) => {
-    setQuestions(prev => {
-      const newQuestions = [...prev];
-      newQuestions[index] = { ...newQuestions[index], ...fields };
-      return newQuestions;
-    });
+  const updateQuestion = (questionId: string, fields: Partial<TemplateQuestion>) => {
+    setQuestions(prev => prev.map(q => q.id === questionId ? { ...q, ...fields } : q));
   };
+
+  // Agrupa questões de LE: todas as de Inglês primeiro, depois todas de Espanhol,
+  // mantendo o restante na ordem original. Necessário porque o ORDER BY question_number
+  // não garante a ordem dentro de questões com mesmo número.
+  const groupedQuestions = (() => {
+    const result: TemplateQuestion[] = [];
+    const leIngles: TemplateQuestion[] = [];
+    const leEspanhol: TemplateQuestion[] = [];
+    for (const q of questions) {
+      if (q.language_variant === "Inglês") { leIngles.push(q); }
+      else if (q.language_variant === "Espanhol") { leEspanhol.push(q); }
+      else {
+        if (leIngles.length || leEspanhol.length) {
+          result.push(
+            ...leIngles.sort((a, b) => a.question_number - b.question_number),
+            ...leEspanhol.sort((a, b) => a.question_number - b.question_number),
+          );
+          leIngles.length = 0;
+          leEspanhol.length = 0;
+        }
+        result.push(q);
+      }
+    }
+    result.push(
+      ...leIngles.sort((a, b) => a.question_number - b.question_number),
+      ...leEspanhol.sort((a, b) => a.question_number - b.question_number),
+    );
+    return result;
+  })();
 
   const getTopicsForDiscipline = (disciplineName: string | null) => {
     if (!disciplineName) return [];
@@ -248,7 +273,7 @@ const TemplateEdit = () => {
     }
   };
 
-  const renderAnswerInput = (question: TemplateQuestion, index: number) => {
+  const renderAnswerInput = (question: TemplateQuestion) => {
     const isVariant = question.language_variant != null;
 
     switch (question.question_type) {
@@ -263,7 +288,7 @@ const TemplateEdit = () => {
             <SummationAnswerEditor
               value={question.correct_answer}
               numPropositions={question.num_propositions || 5}
-              onChange={(newSum) => updateQuestion(index, { correct_answer: newSum })}
+              onChange={(newSum) => updateQuestion(question.id, { correct_answer: newSum })}
             />
           </div>
         );
@@ -277,7 +302,7 @@ const TemplateEdit = () => {
             value={question.correct_answer}
             onChange={(e) => {
               const val = Math.min(99, Math.max(0, parseInt(e.target.value) || 0));
-              updateQuestion(index, { correct_answer: String(val) });
+              updateQuestion(question.id, { correct_answer: String(val) });
             }}
           />
         );
@@ -289,7 +314,7 @@ const TemplateEdit = () => {
         return (
           <Select
             value={question.correct_answer}
-            onValueChange={(value) => updateQuestion(index, { correct_answer: value })}
+            onValueChange={(value) => updateQuestion(question.id, { correct_answer: value })}
           >
             <SelectTrigger className="h-8 w-20">
               <SelectValue />
@@ -315,7 +340,7 @@ const TemplateEdit = () => {
             )}
             <Select
               value={question.correct_answer}
-              onValueChange={(value) => updateQuestion(index, { correct_answer: value })}
+              onValueChange={(value) => updateQuestion(question.id, { correct_answer: value })}
             >
               <SelectTrigger className="h-8 w-20">
                 <SelectValue />
@@ -398,18 +423,21 @@ const TemplateEdit = () => {
                 </tr>
               </thead>
               <tbody>
-                {questions.map((question, index) => {
+                {groupedQuestions.map((question, index) => {
                   const isVariant = question.language_variant != null;
-                  const isSecondVariant = isVariant && question.language_variant === "Espanhol";
-                  
+                  const isEspanhol = question.language_variant === "Espanhol";
+                  const nextQ = groupedQuestions[index + 1];
+                  // Borda grossa no fim de cada grupo de idioma (Inglês→Espanhol ou Espanhol→não-LE)
+                  const isEndOfLangGroup = isVariant && (!nextQ?.language_variant || nextQ.language_variant !== question.language_variant);
+
                   return (
-                    <tr 
-                      key={question.id} 
-                      className={`border-b last:border-0 hover:bg-muted/50 ${isVariant ? 'bg-accent/20' : ''} ${isSecondVariant ? 'border-b-2 border-b-border' : ''}`}
+                    <tr
+                      key={question.id}
+                      className={`border-b last:border-0 hover:bg-muted/50 ${isVariant ? 'bg-accent/20' : ''} ${isEndOfLangGroup ? 'border-b-2 border-b-border' : ''}`}
                     >
                       <td className="py-2 px-2 font-medium">
                         <div className="flex items-center gap-1">
-                          {isSecondVariant ? "" : question.question_number}
+                          {isEspanhol ? "" : question.question_number}
                           {!showTypeColumn && getQuestionTypeBadge(question.question_type)}
                         </div>
                       </td>
@@ -436,7 +464,7 @@ const TemplateEdit = () => {
                                 updates.correct_answer = getObjectiveAlternatives(value)[0];
                                 updates.num_propositions = null;
                               }
-                              updateQuestion(index, updates);
+                              updateQuestion(question.id, updates);
                             }}
                           >
                             <SelectTrigger className="h-8 text-xs">
@@ -451,7 +479,7 @@ const TemplateEdit = () => {
                         </td>
                       )}
                       <td className="py-2 px-2">
-                        {renderAnswerInput(question, index)}
+                        {renderAnswerInput(question)}
                       </td>
                       <td className="py-2 px-2">
                         <Select
@@ -462,12 +490,12 @@ const TemplateEdit = () => {
                           }
                           onValueChange={(value) => {
                             if (value === "__le_ingles__") {
-                              updateQuestion(index, { language_variant: "Inglês", subject: null, topic: null });
+                              updateQuestion(question.id, { language_variant: "Inglês", subject: null, topic: null });
                             } else if (value === "__le_espanhol__") {
-                              updateQuestion(index, { language_variant: "Espanhol", subject: null, topic: null });
+                              updateQuestion(question.id, { language_variant: "Espanhol", subject: null, topic: null });
                             } else {
                               const realValue = value === "__none__" ? null : value;
-                              updateQuestion(index, { language_variant: null, subject: realValue, topic: null });
+                              updateQuestion(question.id, { language_variant: null, subject: realValue, topic: null });
                             }
                           }}
                         >
@@ -491,7 +519,7 @@ const TemplateEdit = () => {
                           getTopicsForDiscipline(question.subject).length > 0 ? (
                             <Select
                               value={question.topic || "__none__"}
-                              onValueChange={(value) => updateQuestion(index, { topic: value === "__none__" ? null : value })}
+                              onValueChange={(value) => updateQuestion(question.id, { topic: value === "__none__" ? null : value })}
                             >
                               <SelectTrigger className="h-8">
                                 <SelectValue placeholder="Selecione..." />
@@ -510,14 +538,14 @@ const TemplateEdit = () => {
                               className="h-8"
                               placeholder={question.subject ? "Nenhum conteúdo cadastrado" : "Selecione a disciplina"}
                               value={question.topic || ""}
-                              onChange={(e) => updateQuestion(index, { topic: e.target.value || null })}
+                              onChange={(e) => updateQuestion(question.id, { topic: e.target.value || null })}
                               disabled={!question.subject}
                             />
                           )
                         )}
                       </td>
                       <td className="py-2 px-2">
-                        {isSecondVariant ? null : (
+                        {isEspanhol ? null : (
                           <Input
                             className="h-8 w-20"
                             type="number"
@@ -525,7 +553,7 @@ const TemplateEdit = () => {
                             min="0"
                             value={question.points}
                             onChange={(e) =>
-                              updateQuestion(index, { points: parseFloat(e.target.value) || 0 })
+                              updateQuestion(question.id, { points: parseFloat(e.target.value) || 0 })
                             }
                           />
                         )}
@@ -541,7 +569,7 @@ const TemplateEdit = () => {
                               value={question.num_propositions || 5}
                               onChange={(e) => {
                                 const val = Math.min(7, Math.max(2, parseInt(e.target.value) || 5));
-                                updateQuestion(index, { num_propositions: val });
+                                updateQuestion(question.id, { num_propositions: val });
                               }}
                             />
                           ) : (

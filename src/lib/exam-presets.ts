@@ -93,36 +93,25 @@ export function generatePresetQuestions(preset: ExamPreset) {
     const questionType = block.question_type || "objective";
     const numPropositions = block.num_propositions || null;
 
-    for (let i = 0; i < block.count; i++) {
-      if (isForeignLanguage) {
-        // Generate two rows per question: one for each language variant
-        questions.push({
-          question_number: questionNum,
-          correct_answer: "A",
-          points: 1,
-          subject: "Língua Estrangeira",
-          topic: null,
-          language_variant: "Inglês",
-          question_type: questionType,
-          num_propositions: numPropositions,
-        });
-        questions.push({
-          question_number: questionNum,
-          correct_answer: "A",
-          points: 1,
-          subject: "Língua Estrangeira",
-          topic: null,
-          language_variant: "Espanhol",
-          question_type: questionType,
-          num_propositions: numPropositions,
-        });
-      } else {
-        // Default correct_answer based on question type
-        let defaultAnswer = "A";
-        if (questionType === "summation") defaultAnswer = "0";
-        else if (questionType === "open_numeric") defaultAnswer = "0";
-        else if (questionType === "discursive") defaultAnswer = "0";
-
+    if (isForeignLanguage) {
+      // All Inglês first, then all Espanhol — easier to fill in sequence without mixing variants
+      const startNum = questionNum;
+      for (let i = 0; i < block.count; i++) {
+        questions.push({ question_number: startNum + i, correct_answer: "A", points: 1,
+          subject: "Língua Estrangeira", topic: null, language_variant: "Inglês",
+          question_type: questionType, num_propositions: numPropositions });
+      }
+      for (let i = 0; i < block.count; i++) {
+        questions.push({ question_number: startNum + i, correct_answer: "A", points: 1,
+          subject: "Língua Estrangeira", topic: null, language_variant: "Espanhol",
+          question_type: questionType, num_propositions: numPropositions });
+      }
+      questionNum += block.count;
+    } else {
+      let defaultAnswer = "A";
+      if (questionType === "summation" || questionType === "open_numeric" || questionType === "discursive")
+        defaultAnswer = "0";
+      for (let i = 0; i < block.count; i++) {
         questions.push({
           question_number: questionNum,
           correct_answer: defaultAnswer,
@@ -133,8 +122,8 @@ export function generatePresetQuestions(preset: ExamPreset) {
           question_type: questionType,
           num_propositions: numPropositions,
         });
+        questionNum++;
       }
-      questionNum++;
     }
   }
 
