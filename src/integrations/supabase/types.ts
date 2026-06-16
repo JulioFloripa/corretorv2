@@ -103,7 +103,6 @@ export type Database = {
           created_at: string | null
           essay_score: number | null
           id: string
-          language_variant: string | null
           max_score: number | null
           percentage: number | null
           status: string
@@ -118,7 +117,6 @@ export type Database = {
           created_at?: string | null
           essay_score?: number | null
           id?: string
-          language_variant?: string | null
           max_score?: number | null
           percentage?: number | null
           status?: string
@@ -133,7 +131,6 @@ export type Database = {
           created_at?: string | null
           essay_score?: number | null
           id?: string
-          language_variant?: string | null
           max_score?: number | null
           percentage?: number | null
           status?: string
