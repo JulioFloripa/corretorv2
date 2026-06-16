@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, FileText, Users } from "lucide-react";
+import { examTypeLabel } from "@/lib/exam-presets";
 import FlemingLogo from "@/components/FlemingLogo";
 
 interface TemplateWithSubjects {
@@ -115,7 +116,7 @@ const Boletins = () => {
                       <div>
                         <CardTitle>{boletim.name}</CardTitle>
                         <CardDescription>
-                          Boletim de desempenho - {boletim.exam_type.toUpperCase()}
+                          Boletim de desempenho - {examTypeLabel(boletim.exam_type)}
                         </CardDescription>
                       </div>
                     </div>

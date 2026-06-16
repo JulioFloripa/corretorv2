@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Pencil } from "lucide-react";
+import { examTypeLabel } from "@/lib/exam-presets";
 
 interface Template {
   id: string;
@@ -74,7 +75,7 @@ const OmrStepHeader = ({ step, title, templateId }: Props) => {
             <SelectContent>
               {templates.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
-                  {t.name} • {t.exam_type.toUpperCase()} • {t.total_questions}q
+                  {t.name} • {examTypeLabel(t.exam_type)} • {t.total_questions}q
                 </SelectItem>
               ))}
             </SelectContent>

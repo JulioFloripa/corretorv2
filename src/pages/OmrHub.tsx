@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Users, FileText, Upload, ClipboardCheck, ScanLine, Pencil } from "lucide-react";
+import { examTypeLabel } from "@/lib/exam-presets";
 import FlemingLogo from "@/components/FlemingLogo";
 
 interface Template {
@@ -93,7 +94,7 @@ const OmrHub = () => {
               <SelectContent>
                 {templates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name} • {t.exam_type.toUpperCase()} • {t.total_questions}q
+                    {t.name} • {examTypeLabel(t.exam_type)} • {t.total_questions}q
                   </SelectItem>
                 ))}
               </SelectContent>

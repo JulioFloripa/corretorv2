@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, ArrowLeft } from "lucide-react";
 import FlemingLogo from "@/components/FlemingLogo";
 import { Textarea } from "@/components/ui/textarea";
-import { EXAM_PRESETS, generatePresetQuestions } from "@/lib/exam-presets";
+import { EXAM_PRESETS, generatePresetQuestions, examTypeLabel } from "@/lib/exam-presets";
 
 interface Template {
   id: string;
@@ -246,7 +246,7 @@ const Templates = () => {
                 <CardContent>
                   <div className="space-y-2 text-sm mb-4">
                     <p className="text-muted-foreground">
-                      <span className="font-medium">Tipo:</span> {template.exam_type}
+                      <span className="font-medium">Tipo:</span> {examTypeLabel(template.exam_type)}
                     </p>
                     <p className="text-muted-foreground">
                       <span className="font-medium">Questões:</span> {template.total_questions}

@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, UserPlus, CheckCircle2, XCircle } from "lucide-react";
+import { examTypeLabel } from "@/lib/exam-presets";
 
 interface Template {
   id: string;
@@ -241,7 +242,7 @@ const AddStudentToExamDialog = ({ open, onOpenChange, templates, onSuccess, pres
                 <SelectContent>
                   {templates.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.nome} ({t.exam_type} - {t.total_questions}q)
+                      {t.nome} ({examTypeLabel(t.exam_type)} - {t.total_questions}q)
                     </SelectItem>
                   ))}
                 </SelectContent>

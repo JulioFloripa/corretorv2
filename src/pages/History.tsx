@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Clock, Trash2, RefreshCw, UserPlus, ChevronDown } from "lucide-react";
+import { examTypeLabel } from "@/lib/exam-presets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import FlemingLogo from "@/components/FlemingLogo";
@@ -204,7 +205,7 @@ const History = () => {
                         <TableCell>{c.templates?.name || "-"}</TableCell>
                         <TableCell>
                           <span className="px-2 py-1 text-xs rounded-full bg-secondary text-secondary-foreground">
-                            {c.templates?.exam_type || "-"}
+                            {examTypeLabel(c.templates?.exam_type)}
                           </span>
                         </TableCell>
                         <TableCell className="text-center">

@@ -13,6 +13,20 @@ export interface ExamPreset {
   subjects: SubjectBlock[];
 }
 
+export const EXAM_TYPE_LABELS: Record<string, string> = {
+  multiple_choice: "Múltipla Escolha",
+  enem: "ENEM",
+  ufsc: "UFSC",
+  acafe: "ACAFE",
+  acafe_criciuma: "ACAFE – Criciúma",
+  custom: "Personalizado",
+};
+
+export function examTypeLabel(examType: string | null | undefined): string {
+  if (!examType) return "—";
+  return EXAM_TYPE_LABELS[examType] ?? examType;
+}
+
 export const EXAM_PRESETS: Record<string, ExamPreset> = {
   acafe: {
     totalQuestions: 63,

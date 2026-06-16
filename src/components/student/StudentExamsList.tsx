@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Edit, FileText } from "lucide-react";
+import { examTypeLabel } from "@/lib/exam-presets";
 import { Badge } from "@/components/ui/badge";
 
 interface StudentExam {
@@ -69,7 +70,7 @@ const StudentExamsList = ({ exams, studentName, studentId, onEditExam }: Student
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary">
-                    {exam.templates?.exam_type || "-"}
+                    {examTypeLabel(exam.templates?.exam_type)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
