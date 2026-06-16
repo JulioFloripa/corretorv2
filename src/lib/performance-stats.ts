@@ -1,3 +1,5 @@
+import { examTypeLabel } from "@/lib/exam-presets";
+
 interface ExamData {
   percentage: number;
   created_at: string;
@@ -143,7 +145,7 @@ export const prepareTableData = (
   return exams.map((exam) => ({
     id: exam.id,
     name: exam.templates?.name || "Prova sem nome",
-    type: exam.templates?.exam_type || "-",
+    type: examTypeLabel(exam.templates?.exam_type),
     date: new Date(exam.created_at).toLocaleDateString("pt-BR"),
     score:
       exam.total_score != null && exam.max_score != null

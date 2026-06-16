@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, ZoomIn, ZoomOut, Maximize, Check, X, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ImageOff, Save } from "lucide-react";
 import { getScanSignedUrl } from "@/lib/omr-client";
+import { examTypeLabel } from "@/lib/exam-presets";
 
 interface Correction {
   id: string;
@@ -337,7 +338,7 @@ const CorrectionEdit = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="font-bold truncate">{correction.student_name}</h1>
               {correction.matricula && <Badge variant="outline">Mat. {correction.matricula}</Badge>}
-              <Badge variant="secondary">{template.exam_type}</Badge>
+              <Badge variant="secondary">{examTypeLabel(template.exam_type)}</Badge>
               <span className="text-sm text-muted-foreground truncate">• {template.name}</span>
             </div>
             <div className="text-xs text-muted-foreground">

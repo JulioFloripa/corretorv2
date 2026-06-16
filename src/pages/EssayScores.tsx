@@ -34,6 +34,7 @@ import {
   Filter,
   FileText,
 } from "lucide-react";
+import { examTypeLabel } from "@/lib/exam-presets";
 
 interface StudentEssay {
   studentId: string;
@@ -334,7 +335,7 @@ const EssayScores = () => {
               <SelectContent>
                 {templates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name} — {t.exam_type} ({t.total_questions} questões)
+                    {t.name} — {examTypeLabel(t.exam_type)} ({t.total_questions} questões)
                   </SelectItem>
                 ))}
               </SelectContent>
