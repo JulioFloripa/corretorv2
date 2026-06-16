@@ -349,14 +349,14 @@ const Students = () => {
             <div className="space-y-2">
               <Label htmlFor="turma">Turma</Label>
               <Select
-                value={formTurmaId}
-                onValueChange={setFormTurmaId}
+                value={formTurmaId || "__none__"}
+                onValueChange={(v) => setFormTurmaId(v === "__none__" ? "" : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a turma" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem turma</SelectItem>
+                  <SelectItem value="__none__">Sem turma</SelectItem>
                   {classes
                     .filter((c) => !formCampus || c.campus === formCampus)
                     .map((c) => (
