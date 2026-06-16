@@ -349,30 +349,49 @@ const OmrDone = () => {
           : null;
         const filteredQs = (questions as any[]).filter((q) => !q.language_variant || q.language_variant === lang);
 
+        // Compute scale factor for cancelada redistribution
+        const sumNormal = filteredQs.filter(q => !q.status).reduce((s: number, q: any) => s + (Number(q.points) || 0), 0);
+        const sumCancelada = filteredQs.filter(q => q.status === "cancelada").reduce((s: number, q: any) => s + (Number(q.points) || 0), 0);
+        const scaleFactor = sumNormal > 0 ? (sumNormal + sumCancelada) / sumNormal : 1;
+
         let totalScore = 0, maxScore = 0;
         const answersToInsert: any[] = [];
 
         for (const q of filteredQs) {
           const detected = sub.detected_answers?.[`q${q.question_number}`] ?? null;
-          const points = Number(q.points) || 1;
+          const rawPoints = Number(q.points) || 1;
           let isCorrect = false, pointsEarned = 0;
+
+          if (q.status === "cancelada") {
+            answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: false, points_earned: 0 });
+            continue;
+          }
+
+          if (q.status === "anulada") {
+            totalScore += rawPoints;
+            maxScore += rawPoints;
+            answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: true, points_earned: rawPoints });
+            continue;
+          }
+
+          const effectivePoints = Math.round(rawPoints * scaleFactor * 100) / 100;
 
           if (q.question_type === "summation") {
             const studentSum = parseInt(detected || "0") || 0;
             const correctSum = parseInt(q.correct_answer || "0") || 0;
-            const r = calculateSummationScore(studentSum, correctSum, q.num_propositions || 5, points);
+            const r = calculateSummationScore(studentSum, correctSum, q.num_propositions || 5, effectivePoints);
             pointsEarned = r.score; isCorrect = pointsEarned > 0; maxScore += r.maxScore;
           } else if (q.question_type === "open_numeric") {
             const studentNum = detected != null ? parseInt(detected) : null;
             const correctNum = parseInt(q.correct_answer || "0") || 0;
-            const r = calculateOpenNumericScore(studentNum, correctNum, points);
+            const r = calculateOpenNumericScore(studentNum, correctNum, effectivePoints);
             pointsEarned = r.score; isCorrect = r.isCorrect; maxScore += r.maxScore;
           } else if (q.question_type === "discursive") {
-            maxScore += points;
+            maxScore += effectivePoints;
           } else {
             isCorrect = (detected || "").toUpperCase() === q.correct_answer.toUpperCase();
-            pointsEarned = isCorrect ? points : 0;
-            maxScore += points;
+            pointsEarned = isCorrect ? effectivePoints : 0;
+            maxScore += effectivePoints;
           }
 
           totalScore += pointsEarned;

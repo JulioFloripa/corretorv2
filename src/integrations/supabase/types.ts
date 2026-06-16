@@ -405,6 +405,7 @@ export type Database = {
           points: number | null
           question_number: number
           question_type: string
+          status: string | null
           subject: string | null
           template_id: string
           topic: string | null
@@ -418,6 +419,7 @@ export type Database = {
           points?: number | null
           question_number: number
           question_type?: string
+          status?: string | null
           subject?: string | null
           template_id: string
           topic?: string | null
@@ -431,6 +433,7 @@ export type Database = {
           points?: number | null
           question_number?: number
           question_type?: string
+          status?: string | null
           subject?: string | null
           template_id?: string
           topic?: string | null

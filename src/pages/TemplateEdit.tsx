@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, RefreshCw, Pencil } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, Pencil, Ban, XCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { recalculateByTemplate } from "@/lib/recalculate";
 import { EXAM_PRESETS, generatePresetQuestions } from "@/lib/exam-presets";
 import { QUESTION_TYPE_LABELS, getObjectiveAlternatives, type QuestionType } from "@/lib/ufsc-scoring";
@@ -26,6 +27,7 @@ interface TemplateQuestion {
   language_variant: string | null;
   question_type: string;
   num_propositions: number | null;
+  status: string | null;
 }
 
 interface DisciplineOption {
@@ -105,6 +107,7 @@ const TemplateEdit = () => {
         language_variant: (q as any).language_variant ?? null,
         question_type: (q as any).question_type ?? "objective",
         num_propositions: (q as any).num_propositions ?? null,
+        status: (q as any).status ?? null,
       })));
     } else {
       // Use preset if available, otherwise create empty questions
@@ -128,6 +131,7 @@ const TemplateEdit = () => {
             language_variant: null,
             question_type: "objective",
             num_propositions: null,
+            status: null,
           })
         );
         setQuestions(emptyQuestions);
@@ -170,6 +174,7 @@ const TemplateEdit = () => {
       language_variant: q.language_variant,
       question_type: q.question_type,
       num_propositions: q.num_propositions,
+      status: q.status,
     }));
 
     const { error } = await supabase.from("template_questions").insert(questionsToInsert);
@@ -192,7 +197,21 @@ const TemplateEdit = () => {
       .eq("template_id", id);
 
     if (count && count > 0) {
-      setShowRecalcDialog(true);
+      const hasStatus = questions.some(q => q.status != null);
+      if (hasStatus) {
+        // Auto-recalculate when any question has anulada/cancelada status
+        setRecalculating(true);
+        const result = await recalculateByTemplate(id);
+        setRecalculating(false);
+        if (result.success) {
+          toast({ title: `Notas recalculadas: ${result.correctionsUpdated} correção(ões) atualizadas.` });
+        } else {
+          toast({ variant: "destructive", title: "Erro ao recalcular", description: result.error });
+        }
+        navigate("/templates");
+      } else {
+        setShowRecalcDialog(true);
+      }
     } else {
       navigate("/templates");
     }
@@ -357,6 +376,12 @@ const TemplateEdit = () => {
     }
   };
 
+  const statusSummary = (() => {
+    const anuladas = questions.filter(q => q.status === "anulada");
+    const canceladas = questions.filter(q => q.status === "cancelada");
+    return { anuladas, canceladas };
+  })();
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -404,6 +429,22 @@ const TemplateEdit = () => {
         <Card>
           <CardHeader>
             <CardTitle>Gabarito das Questões</CardTitle>
+            {(statusSummary.anuladas.length > 0 || statusSummary.canceladas.length > 0) && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {statusSummary.anuladas.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    <Ban className="h-3.5 w-3.5" />
+                    <span>{statusSummary.anuladas.length} questão(ões) anulada(s) — todos os alunos recebem os pontos</span>
+                  </div>
+                )}
+                {statusSummary.canceladas.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded px-2 py-1">
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>{statusSummary.canceladas.length} questão(ões) cancelada(s) — pontos redistribuídos entre as demais</span>
+                  </div>
+                )}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -420,6 +461,7 @@ const TemplateEdit = () => {
                   {showTypeColumn && (
                     <th className="text-left py-2 px-2 font-medium text-muted-foreground w-16">Props</th>
                   )}
+                  <th className="text-left py-2 px-2 font-medium text-muted-foreground w-24">Situação</th>
                 </tr>
               </thead>
               <tbody>
@@ -433,7 +475,11 @@ const TemplateEdit = () => {
                   return (
                     <tr
                       key={question.id}
-                      className={`border-b last:border-0 hover:bg-muted/50 ${isVariant ? 'bg-accent/20' : ''} ${isEndOfLangGroup ? 'border-b-2 border-b-border' : ''}`}
+                      className={`border-b last:border-0 hover:bg-muted/50 ${
+                        question.status === "anulada" ? "bg-amber-50/60" :
+                        question.status === "cancelada" ? "bg-destructive/5 opacity-60" :
+                        isVariant ? "bg-accent/20" : ""
+                      } ${isEndOfLangGroup ? 'border-b-2 border-b-border' : ''}`}
                     >
                       <td className="py-2 px-2 font-medium">
                         <div className="flex items-center gap-1">
@@ -577,6 +623,42 @@ const TemplateEdit = () => {
                           )}
                         </td>
                       )}
+                      <td className="py-2 px-2">
+                        {!isEspanhol && (
+                          <TooltipProvider delayDuration={200}>
+                            <div className="flex items-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuestion(question.id, { status: question.status === "anulada" ? null : "anulada" })}
+                                    className={`p-1 rounded transition-colors ${question.status === "anulada" ? "text-amber-500 bg-amber-50" : "text-muted-foreground hover:text-amber-500 hover:bg-amber-50"}`}
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  {question.status === "anulada" ? "Clique para remover anulação" : "Anular questão (todos ganham os pontos)"}
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuestion(question.id, { status: question.status === "cancelada" ? null : "cancelada" })}
+                                    className={`p-1 rounded transition-colors ${question.status === "cancelada" ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"}`}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  {question.status === "cancelada" ? "Clique para remover cancelamento" : "Cancelar questão (pontos redistribuídos)"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TooltipProvider>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
