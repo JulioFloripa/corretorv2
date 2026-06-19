@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, RefreshCw, Pencil, Ban, XCircle } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, Pencil, Ban, XCircle, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { recalculateByTemplate } from "@/lib/recalculate";
@@ -48,6 +48,8 @@ const TemplateEdit = () => {
   const [loading, setLoading] = useState(true);
   const [showRecalcDialog, setShowRecalcDialog] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [showReorderDialog, setShowReorderDialog] = useState(false);
+  const [reorderBlocks, setReorderBlocks] = useState<{ key: string; label: string; count: number }[]>([]);
 
   useEffect(() => {
     loadTemplate();
@@ -236,6 +238,73 @@ const TemplateEdit = () => {
     setQuestions(prev => prev.map(q => q.id === questionId ? { ...q, ...fields } : q));
   };
 
+  const openReorderDialog = () => {
+    const nonDisc = questions.filter(q => q.question_type !== "discursive");
+    // Build ordered block list, grouping LE variants together
+    const seen = new Map<string, { label: string; count: number; minQ: number }>();
+    for (const q of nonDisc) {
+      const key = q.language_variant ? "Língua Estrangeira" : (q.subject || "—");
+      const label = q.language_variant ? "Língua Estrangeira (Inglês / Espanhol)" : (q.subject || "—");
+      const existing = seen.get(key);
+      if (!existing) {
+        seen.set(key, { label, count: 0, minQ: q.question_number });
+      }
+      const entry = seen.get(key)!;
+      // Count unique question numbers (LE has 2 rows per Q#)
+      if (!q.language_variant || q.language_variant === "Inglês") {
+        entry.count++;
+      }
+      if (q.question_number < entry.minQ) entry.minQ = q.question_number;
+    }
+    const blocks = [...seen.entries()]
+      .map(([key, v]) => ({ key, label: v.label, count: v.count, minQ: v.minQ }))
+      .sort((a, b) => a.minQ - b.minQ)
+      .map(({ key, label, count }) => ({ key, label, count }));
+    setReorderBlocks(blocks);
+    setShowReorderDialog(true);
+  };
+
+  const moveBlock = (idx: number, dir: -1 | 1) => {
+    setReorderBlocks(prev => {
+      const next = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  };
+
+  const applyReorder = () => {
+    const nonDisc = questions.filter(q => q.question_type !== "discursive");
+    const disc = questions.filter(q => q.question_type === "discursive");
+
+    let nextNum = 1;
+    const reordered: TemplateQuestion[] = [];
+
+    for (const block of reorderBlocks) {
+      const blockQs = nonDisc.filter(q => {
+        const k = q.language_variant ? "Língua Estrangeira" : (q.subject || "—");
+        return k === block.key;
+      });
+      // Map old → new question number (LE: both variants share same new numbers)
+      const uniqueOld = [...new Set(blockQs.map(q => q.question_number))].sort((a, b) => a - b);
+      const oldToNew = new Map(uniqueOld.map((old, i) => [old, nextNum + i]));
+      nextNum += uniqueOld.length;
+      for (const q of blockQs) {
+        reordered.push({ ...q, question_number: oldToNew.get(q.question_number)! });
+      }
+    }
+
+    // Discursivas mantêm numeração após objetivas
+    disc.sort((a, b) => a.question_number - b.question_number).forEach((q, i) => {
+      reordered.push({ ...q, question_number: nextNum + i });
+    });
+
+    setQuestions(reordered);
+    setShowReorderDialog(false);
+    toast({ title: "Seções reorganizadas!", description: "Clique em Salvar Gabarito para aplicar." });
+  };
+
   // Agrupa questões de LE: todas as de Inglês primeiro, depois todas de Espanhol,
   // mantendo o restante na ordem original. Necessário porque o ORDER BY question_number
   // não garante a ordem dentro de questões com mesmo número.
@@ -418,6 +487,10 @@ const TemplateEdit = () => {
               />
             </div>
           </div>
+          <Button variant="outline" onClick={openReorderDialog}>
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            Reorganizar Seções
+          </Button>
           <Button onClick={handleSaveQuestions}>
             <Save className="h-4 w-4 mr-2" />
             Salvar Gabarito
@@ -667,6 +740,49 @@ const TemplateEdit = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* ── Dialog: Reorganizar Seções ── */}
+      <AlertDialog open={showReorderDialog} onOpenChange={setShowReorderDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reorganizar Seções</AlertDialogTitle>
+            <AlertDialogDescription>
+              Arraste ou use as setas para ajustar a ordem das disciplinas na prova. Os números das questões serão renumerados automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5 max-h-80 overflow-y-auto my-2">
+            {reorderBlocks.map((block, idx) => (
+              <div key={block.key} className="flex items-center gap-2 p-2.5 border rounded-md bg-muted/30">
+                <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{idx + 1}.</span>
+                <span className="flex-1 text-sm font-medium">{block.label}</span>
+                <span className="text-xs text-muted-foreground shrink-0">{block.count} q.</span>
+                <div className="flex gap-0.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={idx === 0}
+                    onClick={() => moveBlock(idx, -1)}
+                    className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === reorderBlocks.length - 1}
+                    onClick={() => moveBlock(idx, 1)}
+                    className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={applyReorder}>Aplicar Reorganização</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showRecalcDialog} onOpenChange={setShowRecalcDialog}>
         <AlertDialogContent>
