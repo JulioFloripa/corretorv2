@@ -35,32 +35,33 @@ const UFPR_CAMPUSES: CampusConfig[] = [
   },
 ];
 
+// Ordem das disciplinas na prova (somente objetivas entram na fórmula PObj)
 const UFPR_SUBJECTS_ORDER = [
-  "Língua Portuguesa",
+  "Língua Estrangeira",
   "Biologia",
   "Física",
   "Geografia",
   "História",
   "Matemática",
   "Química",
-  "Língua Estrangeira",
   "Literatura Brasileira",
   "Filosofia",
   "Sociologia",
+  "Língua Portuguesa",
 ];
 
 const SUBJECT_TOTALS: Record<string, number> = {
-  "Língua Portuguesa": 10,
+  "Língua Estrangeira": 7,
   "Biologia": 8,
   "Física": 8,
   "Geografia": 8,
   "História": 8,
   "Matemática": 8,
   "Química": 8,
-  "Língua Estrangeira": 7,
   "Literatura Brasileira": 5,
   "Filosofia": 5,
   "Sociologia": 5,
+  "Língua Portuguesa": 10,
 };
 
 function getWeight(campus: CampusConfig, subject: string): number {
@@ -85,9 +86,9 @@ function calcCampusScore(
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
 interface Template { id: string; name: string; exam_type: string; total_questions: number }
-interface Correction { id: string; student_name: string; student_id: string | null; total_score: number | null; max_score: number | null; percentage: number | null; language_variant: string | null }
-interface TemplateQuestion { question_number: number; subject: string | null; language_variant: string | null }
-interface StudentAnswer { question_number: number; is_correct: boolean | null }
+interface Correction { id: string; student_name: string; student_id: string | null; total_score: number | null; max_score: number | null; percentage: number | null; language_variant: string | null; essay_score: number | null }
+interface TemplateQuestion { question_number: number; subject: string | null; language_variant: string | null; question_type: string; points: number | null }
+interface StudentAnswer { question_number: number; is_correct: boolean | null; points_earned: number | null }
 
 const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 const pct = (s: number, m: number) => m > 0 ? `${((s / m) * 100).toFixed(1)}%` : "—";
@@ -135,7 +136,7 @@ const BoletimUfpr = () => {
   const loadCorrections = async () => {
     const { data, error } = await supabase
       .from("corrections")
-      .select("id, student_name, student_id, total_score, max_score, percentage, language_variant")
+      .select("id, student_name, student_id, total_score, max_score, percentage, language_variant, essay_score")
       .eq("template_id", selectedTemplate)
       .eq("status", "completed")
       .order("student_name");
@@ -146,7 +147,7 @@ const BoletimUfpr = () => {
   const loadTemplateQuestions = async () => {
     const { data } = await supabase
       .from("template_questions")
-      .select("question_number, subject, language_variant")
+      .select("question_number, subject, language_variant, question_type, points")
       .eq("template_id", selectedTemplate)
       .order("question_number");
     setTemplateQuestions(data || []);
@@ -156,7 +157,7 @@ const BoletimUfpr = () => {
     setLoading(true);
     const { data } = await supabase
       .from("student_answers")
-      .select("question_number, is_correct")
+      .select("question_number, is_correct, points_earned")
       .eq("correction_id", selectedCorrection);
     setStudentAnswers(data || []);
     setLoading(false);
@@ -168,22 +169,23 @@ const BoletimUfpr = () => {
     const corr = corrections.find(c => c.id === selectedCorrection);
     if (!corr) return null;
 
-    // Build map question_number → is_correct
-    const answerMap = new Map(studentAnswers.map(a => [a.question_number, a.is_correct ?? false]));
+    const answerMap = new Map(studentAnswers.map(a => [a.question_number, a]));
 
-    // Filter questions by student's language variant
     const lang = corr.language_variant;
     const activeQuestions = templateQuestions.filter(q => {
       if (!q.language_variant) return true;
       return q.language_variant === (lang || "Inglês");
     });
 
+    const objectiveQuestions = activeQuestions.filter(q => q.question_type !== "discursive");
+    const discursiveQuestions = activeQuestions.filter(q => q.question_type === "discursive");
+
     const bySubject: Record<string, { correct: number; total: number }> = {};
-    for (const q of activeQuestions) {
+    for (const q of objectiveQuestions) {
       const subject = q.subject || "—";
       if (!bySubject[subject]) bySubject[subject] = { correct: 0, total: 0 };
       bySubject[subject].total++;
-      if (answerMap.get(q.question_number)) bySubject[subject].correct++;
+      if (answerMap.get(q.question_number)?.is_correct) bySubject[subject].correct++;
     }
 
     const disciplineCorrects: Record<string, number> = {};
@@ -198,7 +200,12 @@ const BoletimUfpr = () => {
 
     const best = campusScores.reduce((a, b) => (b.score / b.maxScore > a.score / a.maxScore ? b : a));
 
-    return { corr, bySubject, disciplineCorrects, campusScores, best };
+    // Discursive totals
+    const discursiveEarned = discursiveQuestions.reduce((s, q) => s + (answerMap.get(q.question_number)?.points_earned ?? 0), 0);
+    const discursiveMax = discursiveQuestions.reduce((s, q) => s + (q.points ?? 5), 0);
+    const discursiveCount = discursiveQuestions.length;
+
+    return { corr, bySubject, disciplineCorrects, campusScores, best, discursiveEarned, discursiveMax, discursiveCount };
   }, [selectedCorrection, studentAnswers, corrections, templateQuestions]);
 
   // ── All-students ranking per campus ──────────────────────────────────────
@@ -229,6 +236,7 @@ const BoletimUfpr = () => {
       const lang = corr.language_variant;
 
       const activeQuestions = templateQuestions.filter(q => {
+        if (q.question_type === "discursive") return false; // não entra no PObj
         if (!q.language_variant) return true;
         return q.language_variant === (lang || "Inglês");
       });
@@ -416,6 +424,59 @@ const BoletimUfpr = () => {
                       </Table>
                     </CardContent>
                   </Card>
+
+                  {/* Prova Discursiva + Redação */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Discursivas */}
+                    {correctionData.discursiveCount > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Questões Discursivas</CardTitle>
+                          <CardDescription>{correctionData.discursiveCount} questão(ões) — corrigidas manualmente</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {correctionData.discursiveMax > 0 ? (
+                            <>
+                              <div className="text-3xl font-bold">
+                                {fmt(correctionData.discursiveEarned)}
+                                <span className="text-base font-normal text-muted-foreground"> / {correctionData.discursiveMax}</span>
+                              </div>
+                              <div className="text-sm text-muted-foreground mt-1">
+                                {pct(correctionData.discursiveEarned, correctionData.discursiveMax)} de aproveitamento
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+                                <div className="h-full bg-amber-500 rounded-full transition-all"
+                                  style={{ width: `${correctionData.discursiveMax > 0 ? (correctionData.discursiveEarned / correctionData.discursiveMax) * 100 : 0}%` }} />
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">Aguardando correção manual</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Redação */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Redação</CardTitle>
+                        <CardDescription>Nota lançada em Lançar Notas de Redação</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {correctionData.corr.essay_score != null ? (
+                          <>
+                            <div className="text-3xl font-bold">
+                              {fmt(correctionData.corr.essay_score)}
+                              <span className="text-base font-normal text-muted-foreground"> pts</span>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">Nota registrada</div>
+                          </>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Aguardando lançamento</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               )}
             </TabsContent>
