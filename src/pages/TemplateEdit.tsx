@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,21 @@ const TemplateEdit = () => {
   const [recalculating, setRecalculating] = useState(false);
   const [showReorderDialog, setShowReorderDialog] = useState(false);
   const [reorderBlocks, setReorderBlocks] = useState<{ key: string; label: string; count: number }[]>([]);
+
+  // Subjects from the exam preset (e.g. UFPR: Biologia, Física, ...) — these
+  // are available in the discipline dropdown without needing DB entries.
+  const presetSubjectNames = useMemo(() => {
+    if (!template?.exam_type) return [] as string[];
+    const preset = EXAM_PRESETS[template.exam_type];
+    if (!preset) return [] as string[];
+    return [
+      ...new Set(
+        preset.subjects
+          .filter(s => s.subject !== "Língua Estrangeira" && s.subject !== "Discursiva")
+          .map(s => s.subject)
+      ),
+    ] as string[];
+  }, [template?.exam_type]);
 
   useEffect(() => {
     loadTemplate();
@@ -118,6 +133,7 @@ const TemplateEdit = () => {
         const presetQuestions = generatePresetQuestions(preset).map((q, i) => ({
           ...q,
           id: `temp-${i}`,
+          status: null as string | null,
         }));
         setQuestions(presetQuestions);
       } else {
@@ -639,11 +655,16 @@ const TemplateEdit = () => {
                             <SelectItem value="__none__">Selecione...</SelectItem>
                             <SelectItem value="__le_ingles__">🇬🇧 Língua Estrangeira — Inglês</SelectItem>
                             <SelectItem value="__le_espanhol__">🇪🇸 Língua Estrangeira — Espanhol</SelectItem>
-                            {disciplines.map((disc) => (
-                              <SelectItem key={disc.id} value={disc.name}>
-                                {disc.name}
-                              </SelectItem>
+                            {presetSubjectNames.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
                             ))}
+                            {disciplines
+                              .filter(d => !presetSubjectNames.includes(d.name))
+                              .map((disc) => (
+                                <SelectItem key={disc.id} value={disc.name}>
+                                  {disc.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </td>
