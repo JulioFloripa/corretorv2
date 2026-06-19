@@ -148,8 +148,9 @@ export function generatePresetQuestions(preset: ExamPreset) {
       questionNum += block.count;
     } else {
       let defaultAnswer = "A";
-      if (questionType === "summation" || questionType === "open_numeric" || questionType === "discursive")
+      if (questionType === "summation" || questionType === "open_numeric")
         defaultAnswer = "0";
+      // discursive: DB constraint only allows A-E, use 'A' as placeholder
       for (let i = 0; i < block.count; i++) {
         questions.push({
           question_number: questionNum,
