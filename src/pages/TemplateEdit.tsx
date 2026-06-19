@@ -507,13 +507,27 @@ const TemplateEdit = () => {
                 {statusSummary.anuladas.length > 0 && (
                   <div className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                     <Ban className="h-3.5 w-3.5" />
-                    <span>{statusSummary.anuladas.length} questão(ões) anulada(s) — todos os alunos recebem os pontos</span>
+                    <span>
+                      {statusSummary.anuladas.length} questão(ões) anulada(s)
+                      {statusSummary.anuladas.some(q => q.language_variant) && (
+                        <span className="ml-1 font-medium">
+                          ({statusSummary.anuladas.map(q => q.language_variant ? `Q${q.question_number} ${q.language_variant}` : `Q${q.question_number}`).join(", ")})
+                        </span>
+                      )} — todos ganham os pontos
+                    </span>
                   </div>
                 )}
                 {statusSummary.canceladas.length > 0 && (
                   <div className="flex items-center gap-1.5 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded px-2 py-1">
                     <XCircle className="h-3.5 w-3.5" />
-                    <span>{statusSummary.canceladas.length} questão(ões) cancelada(s) — pontos redistribuídos entre as demais</span>
+                    <span>
+                      {statusSummary.canceladas.length} questão(ões) cancelada(s)
+                      {statusSummary.canceladas.some(q => q.language_variant) && (
+                        <span className="ml-1 font-medium">
+                          ({statusSummary.canceladas.map(q => q.language_variant ? `Q${q.question_number} ${q.language_variant}` : `Q${q.question_number}`).join(", ")})
+                        </span>
+                      )} — pontos redistribuídos
+                    </span>
                   </div>
                 )}
               </div>
@@ -697,40 +711,42 @@ const TemplateEdit = () => {
                         </td>
                       )}
                       <td className="py-2 px-2">
-                        {!isEspanhol && (
-                          <TooltipProvider delayDuration={200}>
-                            <div className="flex items-center gap-1">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuestion(question.id, { status: question.status === "anulada" ? null : "anulada" })}
-                                    className={`p-1 rounded transition-colors ${question.status === "anulada" ? "text-amber-500 bg-amber-50" : "text-muted-foreground hover:text-amber-500 hover:bg-amber-50"}`}
-                                  >
-                                    <Ban className="h-4 w-4" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  {question.status === "anulada" ? "Clique para remover anulação" : "Anular questão (todos ganham os pontos)"}
-                                </TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuestion(question.id, { status: question.status === "cancelada" ? null : "cancelada" })}
-                                    className={`p-1 rounded transition-colors ${question.status === "cancelada" ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"}`}
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  {question.status === "cancelada" ? "Clique para remover cancelamento" : "Cancelar questão (pontos redistribuídos)"}
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </TooltipProvider>
-                        )}
+                        <TooltipProvider delayDuration={200}>
+                          <div className="flex items-center gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuestion(question.id, { status: question.status === "anulada" ? null : "anulada" })}
+                                  className={`p-1 rounded transition-colors ${question.status === "anulada" ? "text-amber-500 bg-amber-50" : "text-muted-foreground hover:text-amber-500 hover:bg-amber-50"}`}
+                                >
+                                  <Ban className="h-4 w-4" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                {question.status === "anulada"
+                                  ? `Remover anulação${question.language_variant ? ` (${question.language_variant})` : ""}`
+                                  : `Anular${question.language_variant ? ` para ${question.language_variant}` : ""} — todos ganham os pontos`}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuestion(question.id, { status: question.status === "cancelada" ? null : "cancelada" })}
+                                  className={`p-1 rounded transition-colors ${question.status === "cancelada" ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"}`}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                {question.status === "cancelada"
+                                  ? `Remover cancelamento${question.language_variant ? ` (${question.language_variant})` : ""}`
+                                  : `Cancelar${question.language_variant ? ` para ${question.language_variant}` : ""} — pontos redistribuídos`}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                       </td>
                     </tr>
                   );
