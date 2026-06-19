@@ -105,6 +105,7 @@ const Boletins = () => {
                   onClick={() => {
                     const type = boletim.exam_type;
                     if (type === "ufsc") navigate("/boletins/ufsc");
+                    else if (type === "ufpr") navigate("/boletins/ufpr");
                     else navigate("/boletins/acafe");
                   }}
                 >

@@ -19,6 +19,7 @@ export const EXAM_TYPE_LABELS: Record<string, string> = {
   ufsc: "UFSC",
   acafe: "ACAFE",
   acafe_criciuma: "ACAFE – Criciúma",
+  ufpr: "UFPR",
   custom: "Personalizado",
 };
 
@@ -66,6 +67,23 @@ export const EXAM_PRESETS: Record<string, ExamPreset> = {
       { subject: "Matemática", count: 45 },
     ],
   },
+  ufpr: {
+    totalQuestions: 80,
+    alternatives: ["A", "B", "C", "D"],
+    subjects: [
+      { subject: "Língua Portuguesa", count: 10 },
+      { subject: "Biologia", count: 8 },
+      { subject: "Física", count: 8 },
+      { subject: "Geografia", count: 8 },
+      { subject: "História", count: 8 },
+      { subject: "Matemática", count: 8 },
+      { subject: "Química", count: 8 },
+      { subject: "Língua Estrangeira", count: 7 },
+      { subject: "Literatura Brasileira", count: 5 },
+      { subject: "Filosofia", count: 5 },
+      { subject: "Sociologia", count: 5 },
+    ],
+  },
   ufsc: {
     totalQuestions: 82,
     alternatives: [], // UFSC doesn't use A-E alternatives
@@ -102,9 +120,15 @@ export function generatePresetQuestions(preset: ExamPreset) {
   }[] = [];
   let questionNum = 1;
 
+  // Derive default objective type from number of alternatives
+  const defaultObjType = preset.alternatives.length === 4 ? "objective_4"
+    : preset.alternatives.length === 2 ? "objective_2"
+    : preset.alternatives.length === 3 ? "objective_3"
+    : "objective";
+
   for (const block of preset.subjects) {
     const isForeignLanguage = block.subject === "Língua Estrangeira";
-    const questionType = block.question_type || "objective";
+    const questionType = block.question_type || defaultObjType;
     const numPropositions = block.num_propositions || null;
 
     if (isForeignLanguage) {
