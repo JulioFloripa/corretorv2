@@ -121,21 +121,15 @@ const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 const pct = (s: number, m: number) => m > 0 ? `${((s / m) * 100).toFixed(1)}%` : "—";
 const pctNum = (s: number, m: number) => m > 0 ? Math.round((s / m) * 100) : 0;
 
-// ── UFPR Logo component (text-based, no external file needed) ─────────────────
-const UfprLogo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
-  const sizes = { sm: "text-xs", md: "text-sm", lg: "text-base" };
-  return (
-    <div className={`flex flex-col items-center leading-none select-none ${sizes[size]}`}>
-      <span className="font-black tracking-widest text-blue-800" style={{ fontSize: size === "lg" ? 28 : size === "md" ? 20 : 14 }}>
-        UFPR
-      </span>
-      <span className="font-semibold text-blue-700 tracking-tight" style={{ fontSize: size === "lg" ? 7 : size === "md" ? 5.5 : 4.5 }}>
-        UNIVERSIDADE FEDERAL DO PARANÁ
-      </span>
-      <div className="mt-0.5 w-full h-[2px] bg-blue-600 rounded" />
-    </div>
-  );
-};
+const UFPR_LOGO_SIZES = { sm: 40, md: 56, lg: 80 };
+
+const UfprLogo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => (
+  <img
+    src="/Logo_oficial_da_UFPR_(sem_fundo).png"
+    alt="UFPR"
+    style={{ height: UFPR_LOGO_SIZES[size], width: "auto", objectFit: "contain" }}
+  />
+);
 
 const BoletimUfpr = () => {
   const navigate = useNavigate();
