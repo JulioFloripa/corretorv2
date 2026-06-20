@@ -132,6 +132,7 @@ export function buildUfprPDF(p: UfprPDFParams) {
   const CW = PW - ML - MR;                        // content width ≈ 186
 
   if (!p.isFirst) doc.addPage();
+  const startPage = doc.getNumberOfPages();
 
   let y = 10;
 
@@ -372,40 +373,66 @@ export function buildUfprPDF(p: UfprPDFParams) {
     y += lines.length * 4 + 1;
   });
 
-  // ── Wrong questions (if fits on page) ────────────────────────────────────────
-  if (p.wrongQuestions.length > 0 && y < 200) {
-    y += 4;
-    sectionHeader(doc, ML, y, CW, `QUESTÕES PARA REVISAR (${p.wrongQuestions.length} erros)`);
+  // ── Wrong / blank questions — always rendered, autoTable handles page breaks ──
+  if (p.wrongQuestions.length > 0) {
+    if (y > 240) {
+      doc.addPage();
+      y = 12;
+    } else {
+      y += 4;
+    }
+
+    const label = p.wrongQuestions.length === 1
+      ? "1 questão para revisar"
+      : `${p.wrongQuestions.length} questões para revisar`;
+    sectionHeader(doc, ML, y, CW, `QUESTÕES A REVISAR — ${label.toUpperCase()}`);
     y += 7;
 
     autoTable(doc, {
       startY: y,
       margin: { left: ML, right: MR },
-      head: [["Q#", "Disciplina", "Conteúdo / Tópico", "Resposta", "Gabarito"]],
+      head: [["Q#", "Disciplina", "Conteúdo / Tópico", "Resposta do aluno", "Gabarito"]],
       body: p.wrongQuestions.map(q => [
-        `Q${q.number}`, q.subject,
+        `Q${String(q.number).padStart(2, "0")}`,
+        q.subject,
         q.topic || "—",
-        q.studentAnswer, q.correctAnswer,
+        q.studentAnswer === "—" || !q.studentAnswer ? "Em branco" : q.studentAnswer,
+        q.correctAnswer,
       ]),
       theme: "plain",
       styles: { fontSize: 7.5, cellPadding: 2, textColor: DARK },
       headStyles: { fillColor: GREEN_MID, textColor: WHITE, fontStyle: "bold", fontSize: 7 },
       columnStyles: {
-        0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
-        1: { cellWidth: 38 },
-        2: { cellWidth: 90 },
-        3: { cellWidth: 18, halign: "center", textColor: [200, 50, 50] as [number,number,number], fontStyle: "bold" },
-        4: { cellWidth: 18, halign: "center", textColor: GREEN, fontStyle: "bold" },
+        0: { cellWidth: 13, halign: "center", fontStyle: "bold" },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 86 },
+        3: { cellWidth: 24, halign: "center", textColor: [200, 50, 50] as [number, number, number], fontStyle: "bold" },
+        4: { cellWidth: 23, halign: "center", textColor: GREEN as [number, number, number], fontStyle: "bold" },
       },
       alternateRowStyles: { fillColor: GREEN_LITE },
+      didDrawPage: (data) => {
+        // On continuation pages, print student name as mini-header
+        if (data.pageNumber > 1) {
+          doc.setFontSize(7); doc.setTextColor(...GRAY); doc.setFont("helvetica", "italic");
+          doc.text(
+            `${p.studentName} — ${p.templateName} — QUESTÕES A REVISAR (continuação)`,
+            ML, 8,
+          );
+          doc.setFont("helvetica", "normal");
+        }
+      },
     });
   }
 
-  // Page number
-  const pageCount = doc.getNumberOfPages();
-  doc.setPage(doc.getNumberOfPages());
-  doc.setFontSize(7); doc.setTextColor(...GRAY);
-  doc.text(`Página ${pageCount}`, PW / 2, 290, { align: "center" });
+  // ── Page numbers on all pages of this student ─────────────────────────────
+  const endPage = doc.getNumberOfPages();
+  const totalPages = endPage - startPage + 1;
+  for (let pg = startPage; pg <= endPage; pg++) {
+    doc.setPage(pg);
+    doc.setFontSize(7); doc.setTextColor(...GRAY); doc.setFont("helvetica", "normal");
+    doc.text(`Página ${pg - startPage + 1} de ${totalPages}`, PW / 2, 291, { align: "center" });
+  }
+  doc.setPage(endPage);
 }
 
 // ── Section header helper ─────────────────────────────────────────────────────
