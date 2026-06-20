@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, ZoomIn, ZoomOut, Maximize, Check, X, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ImageOff, Save } from "lucide-react";
 import { getScanSignedUrl } from "@/lib/omr-client";
@@ -482,18 +481,39 @@ const CorrectionEdit = () => {
           </DialogHeader>
 
           {editingQ?.question_type === "objective" && (
-            <RadioGroup value={editValue} onValueChange={setEditValue} className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {OBJECTIVE_OPTIONS.map((opt) => (
-                <Label key={opt} className="flex items-center gap-2 border rounded-md p-3 cursor-pointer hover:border-primary">
-                  <RadioGroupItem value={opt} />
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setEditValue(opt)}
+                  className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer hover:border-primary transition-colors text-left ${
+                    editValue === opt ? "border-primary bg-primary/10" : ""
+                  }`}
+                >
+                  <div className={`h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    editValue === opt ? "border-primary" : "border-muted-foreground"
+                  }`}>
+                    {editValue === opt && <div className="h-2 w-2 rounded-full bg-primary" />}
+                  </div>
                   <span className="font-bold">{opt}</span>
-                </Label>
+                </button>
               ))}
-              <Label className="flex items-center gap-2 border rounded-md p-3 cursor-pointer hover:border-primary col-span-3">
-                <RadioGroupItem value="" />
+              <button
+                type="button"
+                onClick={() => setEditValue("")}
+                className={`col-span-3 flex items-center gap-2 border rounded-md p-3 cursor-pointer hover:border-primary transition-colors text-left ${
+                  editValue === "" ? "border-primary bg-primary/10" : ""
+                }`}
+              >
+                <div className={`h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                  editValue === "" ? "border-primary" : "border-muted-foreground"
+                }`}>
+                  {editValue === "" && <div className="h-2 w-2 rounded-full bg-primary" />}
+                </div>
                 <span className="text-muted-foreground italic">Em branco</span>
-              </Label>
-            </RadioGroup>
+              </button>
+            </div>
           )}
 
           {(editingQ?.question_type === "summation" || editingQ?.question_type === "open_numeric") && (
