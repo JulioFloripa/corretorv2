@@ -358,23 +358,41 @@ const DiscursiveScores = () => {
           ));
         }
 
-        // Upsert respostas discursivas
+        // Salvar respostas discursivas (select → update ou insert)
         const dirtyScores = discursiveQuestions.filter(q => s.scores[q.questionNumber]?.dirty);
         for (const q of dirtyScores) {
           const earned = s.scores[q.questionNumber]?.earned ?? null;
-          const { error } = await supabase
+
+          // Verificar se já existe uma linha para esta questão
+          const { data: existing } = await supabase
             .from("student_answers")
-            .upsert({
-              correction_id: correctionId,
-              question_number: q.questionNumber,
-              student_answer: "—",
-              is_correct: null,
-              points_earned: earned,
-            }, { onConflict: "correction_id,question_number" });
-          if (error) throw error;
+            .select("id")
+            .eq("correction_id", correctionId!)
+            .eq("question_number", q.questionNumber)
+            .maybeSingle();
+
+          if (existing?.id) {
+            const { error } = await supabase
+              .from("student_answers")
+              .update({ points_earned: earned, is_correct: null })
+              .eq("id", existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from("student_answers")
+              .insert({
+                correction_id: correctionId,
+                question_number: q.questionNumber,
+                student_answer: earned != null ? String(earned) : null,
+                is_correct: null,
+                points_earned: earned,
+              });
+            if (error) throw error;
+          }
         }
         saved++;
-      } catch {
+      } catch (err) {
+        console.error("Erro ao salvar nota discursiva:", err);
         errors++;
       }
     }
