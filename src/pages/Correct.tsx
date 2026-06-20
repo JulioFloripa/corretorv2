@@ -32,12 +32,19 @@ import Papa from "papaparse";
 import ExcelJS from "exceljs";
 import { calculateSummationScore, calculateOpenNumericScore } from "@/lib/ufsc-scoring";
 
-interface NameConflict {
-  studentId: string;
-  existingName: string;
-  newName: string;
-  existingStudentDbId: string;
+interface StudentConflict {
+  matricula: string;
+  existingDbId: string;
+  conflictFields: { field: string; label: string; existingVal: string; newVal: string }[];
+  existingNome: string;
+  newNome: string;
+  existingCampus: string | null;
+  newCampus: string | null;
+  existingLanguage: string | null;
+  newLanguage: string | null;
 }
+// backward-compat alias
+type NameConflict = StudentConflict;
 
 const Correct = () => {
   const navigate = useNavigate();
@@ -55,11 +62,13 @@ const Correct = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   
-  // Estados para detecção de duplicatas
-  const [nameConflicts, setNameConflicts] = useState<NameConflict[]>([]);
+  // Estados para detecção de duplicatas / merge
+  const [nameConflicts, setNameConflicts] = useState<StudentConflict[]>([]);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [pendingParsedData, setPendingParsedData] = useState<any[] | null>(null);
   const [conflictChoices, setConflictChoices] = useState<Record<string, "existing" | "new">>({});
+  // resolvedStudentData: after merge dialog, maps matricula → final values to use in processing
+  const resolvedStudentData = useRef<Record<string, { nome: string; campus: string | null; language: string | null }>>({});
   
   // Ref para controlar cancelamento
   const cancelProcessing = useRef(false);
@@ -182,77 +191,105 @@ const Correct = () => {
     });
   };
 
-  // Detectar conflitos de nomes e resolver antes de processar
+  // Detectar conflitos de cadastro antes de processar (nome, sede, idioma)
   const detectAndResolveConflicts = async (parsedData: any[]): Promise<boolean> => {
     const { data: allStudents } = await supabase
       .from("alunos")
-      .select("id, matricula, nome");
+      .select("id, matricula, nome, campus, foreign_language");
 
-    const studentByIdMap = new Map<string, { id: string; name: string }>();
+    const studentByIdMap = new Map<string, any>();
     (allStudents || []).forEach(s => {
-      if (s.matricula) studentByIdMap.set(s.matricula, { id: s.id, name: s.nome });
+      if (s.matricula) studentByIdMap.set(s.matricula, s);
     });
 
-    const conflicts: NameConflict[] = [];
+    const LABELS: Record<string, string> = {
+      nome: "Nome", campus: "Sede / Campus", foreign_language: "Idioma",
+    };
+
+    const conflicts: StudentConflict[] = [];
     const seen = new Set<string>();
 
     for (const row of parsedData) {
-      const studentName = (row.Nome || row.nome || row.NOME || "").toString().trim();
+      const nome = (row.Nome || row.nome || row.NOME || "").toString().trim();
       const rawEmail = (row.Email || row.email || row.EMAIL || row["Email Address"] || "").toString().trim();
       const emailMatricula = rawEmail.toLowerCase().endsWith("@flemingeducacao.com.br")
-        ? rawEmail.split("@")[0]
-        : "";
-      const studentId = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || emailMatricula || "").toString().trim();
-      
-      if (!studentId || !studentName || seen.has(studentId)) continue;
-      seen.add(studentId);
+        ? rawEmail.split("@")[0] : "";
+      const matricula = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || emailMatricula || "").toString().trim();
+      const campus = (row.Sede || row.sede || row.SEDE || "").toString().trim() || null;
+      const language = (row["Idioma escolhido"] || row["idioma escolhido"] || row["Lingua estrangeira"] || "").toString().trim() || null;
 
-      const existing = studentByIdMap.get(studentId);
-      if (existing && existing.nome.toLowerCase() !== studentName.toLowerCase()) {
+      if (!matricula || !nome || seen.has(matricula)) continue;
+      seen.add(matricula);
+
+      const existing = studentByIdMap.get(matricula);
+      if (!existing) continue; // aluno novo, sem conflito
+
+      const conflictFields: StudentConflict["conflictFields"] = [];
+      const checks = [
+        { field: "nome", existingVal: existing.nome, newVal: nome },
+        { field: "campus", existingVal: existing.campus, newVal: campus },
+        { field: "foreign_language", existingVal: existing.foreign_language, newVal: language },
+      ];
+      for (const c of checks) {
+        if (c.existingVal && c.newVal && c.existingVal.toLowerCase() !== c.newVal.toLowerCase()) {
+          conflictFields.push({ field: c.field, label: LABELS[c.field] || c.field, existingVal: c.existingVal, newVal: c.newVal });
+        }
+      }
+
+      if (conflictFields.length > 0) {
         conflicts.push({
-          studentId,
-          existingName: existing.nome,
-          newName: studentName,
-          existingStudentDbId: existing.id,
+          matricula,
+          existingDbId: existing.id,
+          conflictFields,
+          existingNome: existing.nome,
+          newNome: nome,
+          existingCampus: existing.campus,
+          newCampus: campus,
+          existingLanguage: existing.foreign_language,
+          newLanguage: language,
         });
       }
     }
 
     if (conflicts.length > 0) {
       setNameConflicts(conflicts);
-      // Default: usar o nome novo da planilha
       const defaultChoices: Record<string, "existing" | "new"> = {};
-      conflicts.forEach(c => { defaultChoices[c.studentId] = "new"; });
+      conflicts.forEach(c => { defaultChoices[c.matricula] = "new"; });
       setConflictChoices(defaultChoices);
       setShowConflictDialog(true);
       setPendingParsedData(parsedData);
-      return false; // não continuar processamento ainda
+      return false;
     }
 
-    return true; // sem conflitos, pode continuar
+    return true;
   };
 
   const applyConflictResolutions = async () => {
-    // Aplicar as escolhas do usuário: atualizar nome do aluno e das correções
+    const resolved: Record<string, { nome: string; campus: string | null; language: string | null }> = {};
+
     for (const conflict of nameConflicts) {
-      const chosenName = conflictChoices[conflict.studentId] === "new" 
-        ? conflict.newName 
-        : conflict.existingName;
+      const useNew = conflictChoices[conflict.matricula] === "new";
+      const finalNome = useNew ? conflict.newNome : conflict.existingNome;
+      const finalCampus = useNew ? conflict.newCampus : conflict.existingCampus;
+      const finalLanguage = useNew ? conflict.newLanguage : conflict.existingLanguage;
 
-      // Atualizar nome na tabela students
-      await supabase.from("alunos")
-        .update({ nome: chosenName })
-        .eq("id", conflict.existingStudentDbId);
+      resolved[conflict.matricula] = { nome: finalNome, campus: finalCampus, language: finalLanguage };
 
-      // Atualizar nome em todas as correções com essa matrícula
-      await supabase.from("corrections")
-        .update({ student_name: chosenName })
-        .eq("student_id", conflict.studentId);
+      if (useNew) {
+        // Aplicar no DB imediatamente
+        const patch: Record<string, string | null> = { nome: finalNome };
+        if (finalCampus !== undefined) patch.campus = finalCampus;
+        if (finalLanguage !== undefined) patch.foreign_language = finalLanguage;
+        await supabase.from("alunos").update(patch).eq("id", conflict.existingDbId);
+        await supabase.from("corrections")
+          .update({ student_name: finalNome })
+          .eq("student_id", conflict.matricula);
+      }
     }
 
+    resolvedStudentData.current = resolved;
     setShowConflictDialog(false);
-    
-    // Continuar com o processamento
+
     if (pendingParsedData) {
       await startProcessing(pendingParsedData);
       setPendingParsedData(null);
@@ -406,35 +443,40 @@ const Correct = () => {
               if (!studentName || studentName.length > 255) return;
               if (studentId && studentId.length > 100) return;
 
-              // Se houve resolução de conflito, usar o nome escolhido
-              if (studentId && conflictChoices[studentId]) {
-                const conflict = nameConflicts.find(c => c.studentId === studentId);
-                if (conflict) {
-                  studentName = conflictChoices[studentId] === "new" ? conflict.newName : conflict.existingName;
-                }
+              // Se houve resolução de conflito de merge, usar os valores decididos pelo usuário
+              if (studentId && resolvedStudentData.current[studentId]) {
+                const r = resolvedStudentData.current[studentId];
+                studentName = r.nome;
+                if (r.campus !== undefined) studentCampus = r.campus;
+                if (r.language !== undefined) studentLanguage = r.language;
               }
 
-              // Registrar/atualizar aluno na tabela students (student_id como chave global)
+              // Registrar/atualizar aluno na tabela alunos (matricula como chave global)
               if (studentId) {
                 if (studentByIdMap.has(studentId)) {
-                  const updateData: any = { nome: studentName };
-                  if (studentCampus) updateData.campus = studentCampus;
-                  if (studentLanguage) updateData.foreign_language = studentLanguage;
-                  await supabase.from("alunos").update(updateData)
-                    .eq("id", studentByIdMap.get(studentId)!);
+                  // Se este aluno teve conflito resolvido como "existing", não sobrescrever
+                  const hadConflict = nameConflicts.some(c => c.matricula === studentId);
+                  const keptExisting = hadConflict && conflictChoices[studentId] === "existing";
+                  if (!keptExisting) {
+                    const updateData: any = { nome: studentName };
+                    if (studentCampus) updateData.campus = studentCampus;
+                    if (studentLanguage) updateData.foreign_language = studentLanguage;
+                    await supabase.from("alunos").update(updateData)
+                      .eq("id", studentByIdMap.get(studentId)!);
+                  }
                 } else {
                   const { data: inserted } = await supabase.from("alunos").insert({
                     nome: studentName, matricula: studentId,
                     campus: studentCampus, foreign_language: studentLanguage,
                   }).select("id").single();
-                  studentByIdMap.set(studentId, inserted?.id || "inserted");
+                  if (inserted) studentByIdMap.set(studentId, inserted.id);
                 }
               } else if (!studentByNameMap.has(studentName)) {
                 const { data: inserted } = await supabase.from("alunos").insert({
                   nome: studentName,
                   campus: studentCampus, foreign_language: studentLanguage,
                 }).select("id").single();
-                studentByNameMap.set(studentName, inserted?.id || "inserted");
+                if (inserted) studentByNameMap.set(studentName, inserted.id);
               }
 
               // Correção: verificar existente via mapa pré-carregado
@@ -838,61 +880,89 @@ const Correct = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog de Conflitos de Nomes */}
+      {/* Dialog de Conflitos de Cadastro (merge) */}
       <Dialog open={showConflictDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowConflictDialog(false);
-          setPendingParsedData(null);
-        }
+        if (!open) { setShowConflictDialog(false); setPendingParsedData(null); }
       }}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-warning">
-              ⚠️ Alunos com nomes diferentes
-            </DialogTitle>
+            <DialogTitle className="text-amber-600">⚠️ Conflito de dados — {nameConflicts.length} aluno(s)</DialogTitle>
             <DialogDescription>
-              Foram encontrados alunos com a mesma matrícula mas nomes diferentes. 
-              Escolha qual nome manter para cada caso:
+              A matrícula já existe no cadastro mas os dados diferem da planilha.
+              Escolha qual versão manter para cada aluno.{" "}
+              <strong>Atenção: escolher "Usar planilha" sobrescreve os registros atuais.</strong>
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+
+          <div className="space-y-5 py-2">
             {nameConflicts.map((conflict) => (
-              <div key={conflict.studentId} className="border rounded-lg p-4 space-y-3">
-                <p className="text-sm font-medium">
-                  Matrícula: <span className="font-mono text-primary">{conflict.studentId}</span>
-                </p>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-2 rounded-md border cursor-pointer hover:bg-accent/50 transition-colors">
+              <div key={conflict.matricula} className="border rounded-lg overflow-hidden">
+                {/* Header do card */}
+                <div className="bg-muted/50 px-4 py-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold">
+                    Matrícula: <span className="font-mono text-primary">{conflict.matricula}</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">{conflict.conflictFields.length} campo(s) diferente(s)</span>
+                </div>
+
+                {/* Tabela de campos conflitantes */}
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-4 py-1.5 text-left text-xs text-muted-foreground font-medium w-28">Campo</th>
+                      <th className="px-4 py-1.5 text-left text-xs text-muted-foreground font-medium">Atual no sistema</th>
+                      <th className="px-4 py-1.5 text-left text-xs text-muted-foreground font-medium">Da planilha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conflict.conflictFields.map((f) => (
+                      <tr key={f.field} className="border-b last:border-0">
+                        <td className="px-4 py-2 font-medium text-xs text-muted-foreground">{f.label}</td>
+                        <td className={`px-4 py-2 ${conflictChoices[conflict.matricula] === "existing" ? "font-semibold text-primary" : "text-muted-foreground line-through"}`}>
+                          {f.existingVal}
+                        </td>
+                        <td className={`px-4 py-2 ${conflictChoices[conflict.matricula] === "new" ? "font-semibold text-primary" : "text-muted-foreground line-through"}`}>
+                          {f.newVal}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Escolha */}
+                <div className="flex gap-2 p-3 bg-background border-t">
+                  <label className={`flex-1 flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${conflictChoices[conflict.matricula] === "existing" ? "border-primary bg-primary/5" : "hover:bg-accent/40"}`}>
                     <input
                       type="radio"
-                      name={`conflict-${conflict.studentId}`}
-                      checked={conflictChoices[conflict.studentId] === "existing"}
-                      onChange={() => setConflictChoices(prev => ({ ...prev, [conflict.studentId]: "existing" }))}
+                      name={`merge-${conflict.matricula}`}
+                      checked={conflictChoices[conflict.matricula] === "existing"}
+                      onChange={() => setConflictChoices(prev => ({ ...prev, [conflict.matricula]: "existing" }))}
                       className="accent-primary"
                     />
                     <div>
-                      <p className="text-sm font-medium">Manter nome atual</p>
-                      <p className="text-sm text-muted-foreground">{conflict.existingName}</p>
+                      <p className="text-sm font-medium">Manter cadastro atual</p>
+                      <p className="text-xs text-muted-foreground">Não altera nenhum campo</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 p-2 rounded-md border cursor-pointer hover:bg-accent/50 transition-colors">
+                  <label className={`flex-1 flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${conflictChoices[conflict.matricula] === "new" ? "border-amber-500 bg-amber-50" : "hover:bg-accent/40"}`}>
                     <input
                       type="radio"
-                      name={`conflict-${conflict.studentId}`}
-                      checked={conflictChoices[conflict.studentId] === "new"}
-                      onChange={() => setConflictChoices(prev => ({ ...prev, [conflict.studentId]: "new" }))}
-                      className="accent-primary"
+                      name={`merge-${conflict.matricula}`}
+                      checked={conflictChoices[conflict.matricula] === "new"}
+                      onChange={() => setConflictChoices(prev => ({ ...prev, [conflict.matricula]: "new" }))}
+                      className="accent-amber-500"
                     />
                     <div>
-                      <p className="text-sm font-medium">Usar nome da planilha</p>
-                      <p className="text-sm text-muted-foreground">{conflict.newName}</p>
+                      <p className="text-sm font-medium text-amber-700">Usar dados da planilha</p>
+                      <p className="text-xs text-muted-foreground">Sobrescreve campos em conflito</p>
                     </div>
                   </label>
                 </div>
               </div>
             ))}
           </div>
-          <DialogFooter className="gap-2">
+
+          <DialogFooter className="gap-2 pt-2">
             <Button variant="outline" onClick={() => { setShowConflictDialog(false); setPendingParsedData(null); }}>
               Cancelar
             </Button>

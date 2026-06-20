@@ -116,14 +116,29 @@ const Students = () => {
       return;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+
+    const newMatricula = formStudentId.trim() || null;
+
+    // Verificar duplicata de matrícula antes de salvar
+    if (newMatricula) {
+      const conflict = students.find(
+        s => s.matricula === newMatricula && s.id !== editingStudent?.id
+      );
+      if (conflict) {
+        toast({
+          title: "Matrícula já cadastrada",
+          description: `A matrícula "${newMatricula}" já pertence ao aluno "${conflict.nome}". Verifique e tente outra matrícula.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const payload = {
       nome: formName.trim(),
-      matricula: formStudentId.trim() || null,
+      matricula: newMatricula,
       campus: formCampus || null,
       turma_id: formTurmaId || null,
       email: formEmail.trim() || null,
@@ -131,7 +146,6 @@ const Students = () => {
 
     if (editingStudent) {
       const { error } = await supabase.from("alunos").update(payload).eq("id", editingStudent.id);
-
       if (error) {
         toast({ title: "Erro ao atualizar aluno", description: error.message, variant: "destructive" });
         return;
@@ -143,7 +157,7 @@ const Students = () => {
         if (error.code === "23505") {
           toast({
             title: "Matrícula já cadastrada",
-            description: "Já existe um aluno com essa matrícula.",
+            description: `A matrícula "${newMatricula}" já existe no cadastro.`,
             variant: "destructive",
           });
         } else {
