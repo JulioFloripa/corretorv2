@@ -57,8 +57,15 @@ interface ScanSubmission {
   language: string | null;
 }
 
-const OBJECTIVE_OPTIONS = ["A", "B", "C", "D", "E"];
+const ALL_OBJECTIVE_OPTIONS = ["A", "B", "C", "D", "E"];
 const FOREIGN_LANGUAGES = ["Inglês", "Espanhol"];
+const isObjectiveType = (qt: string | null | undefined) =>
+  !!qt && (qt === "objective" || qt.startsWith("objective_"));
+const getObjectiveOptions = (qt: string | null | undefined) => {
+  const match = qt?.match(/^objective_(\d+)$/);
+  const count = match ? parseInt(match[1]) : 5;
+  return ALL_OBJECTIVE_OPTIONS.slice(0, count);
+};
 
 const CorrectionEdit = () => {
   const navigate = useNavigate();
@@ -480,9 +487,9 @@ const CorrectionEdit = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {editingQ?.question_type === "objective" && (
+          {isObjectiveType(editingQ?.question_type) && (
             <div className="grid grid-cols-3 gap-2">
-              {OBJECTIVE_OPTIONS.map((opt) => (
+              {getObjectiveOptions(editingQ?.question_type).map((opt) => (
                 <button
                   key={opt}
                   type="button"
