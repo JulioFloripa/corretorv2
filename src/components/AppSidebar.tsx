@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ScanLine,
   PenLine,
+  Pencil,
   HelpCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -66,6 +67,7 @@ const groups: NavGroup[] = [
     items: [
       { title: "Corrigir Prova", url: "/correct", icon: FileCheck, end: true },
       { title: "Leitura de Gabaritos", url: "/omr/done", icon: ScanLine, matchPrefixes: ["/omr"] },
+      { title: "Notas Discursivas", url: "/discursive-scores", icon: Pencil, end: true },
       { title: "Notas de Redação", url: "/essay-scores", icon: PenLine, end: true },
     ],
   },

@@ -81,65 +81,84 @@ const EssayScores = () => {
   const loadStudents = async (templateId: string) => {
     setLoading(true);
     try {
-      // 1. Buscar IDs dos alunos matriculados nesta prova
-      const { data: enrollments, error: enrollErr } = await supabase
-        .from("template_students")
-        .select("student_id")
-        .eq("template_id", templateId);
-
-      if (enrollErr) {
-        toast({ title: "Erro ao buscar matrículas", description: enrollErr.message, variant: "destructive" });
-        setLoading(false);
-        return;
-      }
-
-      const studentIds = (enrollments || []).map((e: any) => e.student_id).filter(Boolean);
-
-      if (studentIds.length === 0) {
-        setStudents([]);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Buscar dados dos alunos separadamente (sem FK join)
-      const [{ data: studentsData }, { data: corrections }] = await Promise.all([
-        supabase
-          .from("alunos")
-          .select("id, nome, matricula, campus")
-          .in("id", studentIds),
+      // Usa corrections como fonte primária — funciona tanto para scan quanto importação de planilha
+      const [{ data: corrections }, { data: enrollments }] = await Promise.all([
         supabase
           .from("corrections")
           .select("id, student_name, student_id, essay_score")
           .eq("template_id", templateId),
+        supabase
+          .from("template_students")
+          .select("student_id")
+          .eq("template_id", templateId),
       ]);
 
-      const corrByName = new Map<string, any>();
-      const corrByStudentId = new Map<string, any>();
-      for (const c of (corrections as any[]) || []) {
-        if (c.student_name) corrByName.set(c.student_name, c);
-        if (c.student_id) corrByStudentId.set(c.student_id, c);
+      const enrolledIds = (enrollments || []).map((e: any) => e.student_id).filter(Boolean);
+      const corrNames = (corrections || []).map((c: any) => c.student_name).filter(Boolean);
+      const corrIds = (corrections || []).map((c: any) => c.student_id).filter(Boolean);
+      const allIds = [...new Set([...enrolledIds, ...corrIds])];
+
+      // Buscar dados de alunos por ID e por nome
+      const alunosMap = new Map<string, any>();
+      const [byId, byName] = await Promise.all([
+        allIds.length > 0
+          ? supabase.from("alunos").select("id, nome, matricula, campus").in("id", allIds)
+          : Promise.resolve({ data: [] }),
+        corrNames.length > 0
+          ? supabase.from("alunos").select("id, nome, matricula, campus").in("nome", corrNames)
+          : Promise.resolve({ data: [] }),
+      ]);
+      for (const a of [...(byId.data || []), ...(byName.data || [])]) {
+        if (!alunosMap.has(a.id)) alunosMap.set(a.id, a);
       }
 
-      const rows: StudentEssay[] = ((studentsData as any[]) || [])
-        .sort((a: any, b: any) => a.nome.localeCompare(b.nome))
-        .map((s: any) => {
-          const corr =
-            corrByStudentId.get(s.id) ||
-            corrByName.get(s.nome) ||
-            null;
-          return {
-            studentId: s.id,
-            studentName: s.nome,
-            studentMatricula: s.matricula,
-            campus: s.campus,
-            correctionId: corr?.id || null,
-            essayScore: corr?.essay_score ?? null,
-            originalScore: corr?.essay_score ?? null,
-            dirty: false,
-          };
-        });
+      const findAluno = (corr: any) => {
+        if (corr.student_id && alunosMap.has(corr.student_id)) return alunosMap.get(corr.student_id);
+        return Array.from(alunosMap.values()).find(
+          (a: any) => a.nome === corr.student_name || a.matricula === corr.student_id
+        ) || null;
+      };
 
-      setStudents(rows);
+      const rowMap = new Map<string, StudentEssay>();
+
+      // Adicionar alunos de correções (principal)
+      for (const corr of corrections || []) {
+        const aluno = findAluno(corr);
+        rowMap.set(corr.id, {
+          studentId: aluno?.id || corr.student_id || corr.student_name,
+          studentName: corr.student_name,
+          studentMatricula: aluno?.matricula || corr.student_id || null,
+          campus: aluno?.campus || null,
+          correctionId: corr.id,
+          essayScore: corr.essay_score ?? null,
+          originalScore: corr.essay_score ?? null,
+          dirty: false,
+        });
+      }
+
+      // Adicionar alunos matriculados sem correção ainda
+      for (const [, aluno] of alunosMap) {
+        if (!enrolledIds.includes(aluno.id)) continue;
+        const hasCorrEntry = (corrections || []).some(
+          (c: any) => c.student_id === aluno.id || c.student_name === aluno.nome
+        );
+        if (!hasCorrEntry) {
+          rowMap.set(`enrolled_${aluno.id}`, {
+            studentId: aluno.id,
+            studentName: aluno.nome,
+            studentMatricula: aluno.matricula,
+            campus: aluno.campus,
+            correctionId: null,
+            essayScore: null,
+            originalScore: null,
+            dirty: false,
+          });
+        }
+      }
+
+      setStudents(
+        Array.from(rowMap.values()).sort((a, b) => a.studentName.localeCompare(b.studentName))
+      );
     } catch (err: any) {
       toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
     } finally {

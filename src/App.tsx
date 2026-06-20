@@ -30,6 +30,7 @@ import Correcao from "./pages/Correcao";
 import CorrectionEdit from "./pages/CorrectionEdit";
 import NotFound from "./pages/NotFound";
 import EssayScores from "./pages/EssayScores";
+import DiscursiveScores from "./pages/DiscursiveScores";
 import Help from "./pages/Help";
 import ResetPassword from "./pages/ResetPassword";
 import AppLayout from "./components/AppLayout";
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/students" element={<Students />} />
             <Route path="/classes" element={<Classes />} />
           <Route path="/essay-scores" element={<EssayScores />} />
+          <Route path="/discursive-scores" element={<DiscursiveScores />} />
           <Route path="/help" element={<Help />} />
             <Route path="/omr" element={<OmrHub />} />
             <Route path="/omr/enroll" element={<OmrEnroll />} />
