@@ -5,6 +5,7 @@ export interface SubjectBlock {
   count: number;
   question_type?: QuestionType;
   num_propositions?: number; // for summation questions
+  points?: number; // default points per question (overrides global default of 1)
 }
 
 export interface ExamPreset {
@@ -82,7 +83,7 @@ export const EXAM_PRESETS: Record<string, ExamPreset> = {
       { subject: "Filosofia", count: 5 },
       { subject: "Sociologia", count: 5 },
       { subject: "Língua Portuguesa", count: 10 },
-      { subject: "Discursiva", count: 5, question_type: "discursive" },
+      { subject: "Discursiva", count: 2, question_type: "discursive", points: 10 },
     ],
   },
   ufsc: {
@@ -155,7 +156,7 @@ export function generatePresetQuestions(preset: ExamPreset) {
         questions.push({
           question_number: questionNum,
           correct_answer: defaultAnswer,
-          points: 1,
+          points: block.points ?? 1,
           subject: block.subject === "Discursiva" ? null : block.subject,
           topic: null,
           language_variant: null,
