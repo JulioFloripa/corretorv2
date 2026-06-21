@@ -314,16 +314,16 @@ export function buildUfprPDF(p: UfprPDFParams) {
     ],
   ];
 
-  // Desempenho final rows per campus
+  // Desempenho final rows per campus — P = (Obj + CPT) / (máx Obj + maxCPT) × 1000
+  // Redação é exibida separadamente mas não entra na fórmula P
   UFPR_CAMPUSES.forEach((campus, ci) => {
     const pObj = campusTotals[ci];
     const maxPObj = campusMaxTotals[ci];
-    const total = pObj + discEarned + (essay ?? 0);
-    const maxTotal = maxPObj + maxDisc + (essay != null ? 10 : 0); // rough max for essay
-    const desempenho = maxPObj > 0 ? (total / (maxPObj + maxDisc)) * 1000 : 0;
+    const denominator = maxPObj + maxDisc;
+    const desempenho = denominator > 0 ? ((pObj + discEarned) / denominator) * 1000 : 0;
     compRows.push([
       `Desempenho Final — ${campus.name}`,
-      `P = (${pObj} + ${fmtNum(discEarned, 1)}) / ${maxPObj + maxDisc} × 1000`,
+      `P = (${pObj} + ${fmtNum(discEarned, 1)}) / ${denominator} × 1000`,
       `${fmtNum(desempenho, 3)}   (máx: 1000)`,
     ]);
   });
