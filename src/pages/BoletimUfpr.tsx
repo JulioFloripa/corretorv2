@@ -435,7 +435,7 @@ const BoletimUfpr = () => {
       studentName: corr.student_name,
       studentId: corr.student_id,
       studentSede: meta?.campus ?? null,
-      languageVariant: lang,
+      languageVariant: lang || "Inglês",
       bySubject,
       classAvgCount,
       discursiveEarned,

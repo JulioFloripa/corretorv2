@@ -287,12 +287,15 @@ const CorrectionEdit = () => {
     setForeignLanguage(newLang);
     setSavingLang(true);
     try {
-      if (studentDbId) {
-        await supabase.from("alunos").update({ foreign_language: newLang }).eq("id", studentDbId);
-      }
-      if (scan) {
-        await supabase.from("scan_submissions").update({ language: newLang }).eq("id", scan.id);
-      }
+      await Promise.all([
+        supabase.from("corrections").update({ language_variant: newLang }).eq("id", correction!.id),
+        studentDbId
+          ? supabase.from("alunos").update({ foreign_language: newLang }).eq("id", studentDbId)
+          : Promise.resolve(),
+        scan
+          ? supabase.from("scan_submissions").update({ language: newLang }).eq("id", scan.id)
+          : Promise.resolve(),
+      ]);
       toast({ title: "Língua estrangeira atualizada" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
