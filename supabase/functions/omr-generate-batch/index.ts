@@ -9,6 +9,7 @@ const corsHeaders = {
 interface GenerateBody {
   template_id: string;
   student_ids?: string[]; // se vazio, usa todos os matriculados em template_students
+  day?: number;           // 1 ou 2 (ENEM/UFSC); omitir = dia 1
 }
 
 /**
@@ -65,6 +66,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body: GenerateBody = await req.json();
+    const requestedDay = body.day || 1;
     if (!body.template_id) return json({ error: "template_id obrigatório" }, 400);
 
     // Carregar template + questões
@@ -138,13 +140,15 @@ Deno.serve(async (req) => {
     // Deriva as alternativas com base no tipo da prova e nas questões salvas
     const alternatives = deriveAlternatives(template.exam_type, questions || []);
 
-    // Payload v6: inclui total_questions e alternatives para suportar provas personalizadas
+    // Payload v6: inclui total_questions, alternatives e day para ENEM/UFSC
+    const examTypeUpper = String(template.exam_type || "ACAFE").toUpperCase();
     const payload = {
       template_id: template.id,
-      template_type: String(template.exam_type || "ACAFE").toUpperCase(),
+      template_type: examTypeUpper,
       template_name: template.name,
       total_questions: template.total_questions,
       alternatives,
+      day: requestedDay,
       students: sheets.map((sh) => {
         const student = students.find((s: any) => s.id === sh.student_id)!;
         return {
