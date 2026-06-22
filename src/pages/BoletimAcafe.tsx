@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,6 +76,7 @@ interface StudentMeta {
 
 const BoletimAcafe = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
@@ -127,13 +128,18 @@ const BoletimAcafe = () => {
     const { data, error } = await supabase
       .from("templates")
       .select("*")
+      .in("exam_type", ["acafe", "acafe_criciuma"])
       .order("created_at", { ascending: false });
 
     if (error) {
       toast({ title: "Erro ao carregar templates", variant: "destructive" });
       return;
     }
-    setTemplates(data || []);
+    const list = data || [];
+    setTemplates(list);
+    const urlId = searchParams.get("templateId");
+    if (urlId && list.some((t) => t.id === urlId)) setSelectedTemplate(urlId);
+    else if (list.length === 1) setSelectedTemplate(list[0].id);
   };
 
   const loadCorrections = async () => {

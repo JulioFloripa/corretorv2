@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -108,6 +108,7 @@ const UfprLogo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => (
 
 const BoletimUfpr = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -172,8 +173,11 @@ const BoletimUfpr = () => {
     const { data } = await supabase
       .from("templates").select("id, name, exam_type, total_questions")
       .eq("exam_type", "ufpr").order("created_at", { ascending: false });
-    setTemplates(data || []);
-    if (data && data.length === 1) setSelectedTemplate(data[0].id);
+    const list = data || [];
+    setTemplates(list);
+    const urlId = searchParams.get("templateId");
+    if (urlId && list.some((t) => t.id === urlId)) setSelectedTemplate(urlId);
+    else if (list.length === 1) setSelectedTemplate(list[0].id);
   };
 
   const loadCorrections = async () => {

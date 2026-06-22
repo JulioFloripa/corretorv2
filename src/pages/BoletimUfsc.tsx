@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +75,7 @@ const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 
 const BoletimUfsc = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
@@ -116,8 +117,12 @@ const BoletimUfsc = () => {
   };
 
   const loadTemplates = async () => {
-    const { data } = await supabase.from("templates").select("*").order("created_at", { ascending: false });
-    setTemplates(data || []);
+    const { data } = await supabase.from("templates").select("*").eq("exam_type", "ufsc").order("created_at", { ascending: false });
+    const list = data || [];
+    setTemplates(list);
+    const urlId = searchParams.get("templateId");
+    if (urlId && list.some((t) => t.id === urlId)) setSelectedTemplate(urlId);
+    else if (list.length === 1) setSelectedTemplate(list[0].id);
   };
 
   const loadCorrections = async () => {

@@ -104,9 +104,10 @@ const Boletins = () => {
                   className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
                   onClick={() => {
                     const type = boletim.exam_type;
-                    if (type === "ufsc") navigate("/boletins/ufsc");
-                    else if (type === "ufpr") navigate("/boletins/ufpr");
-                    else navigate("/boletins/acafe");
+                    const id = boletim.id;
+                    if (type === "ufsc") navigate(`/boletins/ufsc?templateId=${id}`);
+                    else if (type === "ufpr") navigate(`/boletins/ufpr?templateId=${id}`);
+                    else navigate(`/boletins/acafe?templateId=${id}`);
                   }}
                 >
                   <CardHeader>
