@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Trophy, TrendingUp, Users, BookOpen, AlertCircle, CheckCircle2, XCircle,
-  FileDown, Mail, Download, Loader2,
+  FileDown, Mail, Download, Loader2, FilePen,
 } from "lucide-react";
 import FlemingLogo from "@/components/FlemingLogo";
 import jsPDF from "jspdf";
@@ -109,6 +109,7 @@ const UfprLogo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => (
 const BoletimUfpr = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { toast } = useToast();
 
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -140,6 +141,14 @@ const BoletimUfpr = () => {
       loadTemplateQuestions();
     }
   }, [selectedTemplate]);
+
+  // Recarrega ao voltar do CorrectionEdit (language_variant ou respostas podem ter mudado)
+  useEffect(() => {
+    if (selectedTemplate) {
+      loadCorrections();
+      if (selectedCorrection) loadStudentAnswers();
+    }
+  }, [location.key]);
 
   useEffect(() => {
     if (selectedCorrection) loadStudentAnswers();
@@ -581,6 +590,12 @@ const BoletimUfpr = () => {
                   ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                   : <Mail className="h-4 w-4 mr-1" />}
                 {sendingAllEmails ? "Enviando..." : "Enviar Todos"}
+              </Button>
+            )}
+            {correctionData && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/corrections/${selectedCorrection}/edit`)}>
+                <FilePen className="h-4 w-4 mr-1" />
+                Editar Respostas
               </Button>
             )}
             {correctionData && (
