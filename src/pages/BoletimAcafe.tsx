@@ -128,7 +128,7 @@ const BoletimAcafe = () => {
     const { data, error } = await supabase
       .from("templates")
       .select("*")
-      .in("exam_type", ["acafe", "acafe_criciuma"])
+      .eq("exam_type", "acafe")
       .order("created_at", { ascending: false });
 
     if (error) {

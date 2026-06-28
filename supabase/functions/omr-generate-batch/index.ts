@@ -18,7 +18,7 @@ interface GenerateBody {
  */
 function deriveAlternatives(examType: string, questions: { question_type?: string }[]): string[] {
   const lower = (examType || "").toLowerCase();
-  if (lower === "acafe" || lower === "acafe_criciuma") return ["A", "B", "C", "D"];
+  if (lower === "acafe") return ["A", "B", "C", "D"];
   if (lower === "enem") return ["A", "B", "C", "D", "E"];
   if (lower === "ufsc") return [];
 

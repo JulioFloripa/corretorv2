@@ -19,7 +19,6 @@ export const EXAM_TYPE_LABELS: Record<string, string> = {
   enem: "ENEM",
   ufsc: "UFSC",
   acafe: "ACAFE",
-  acafe_criciuma: "ACAFE – Criciúma",
   ufpr: "UFPR",
   custom: "Personalizado",
 };
@@ -42,20 +41,6 @@ export const EXAM_PRESETS: Record<string, ExamPreset> = {
       { subject: "Biologia", count: 7 },
       { subject: "História", count: 7 },
       { subject: "Geografia", count: 7 },
-    ],
-  },
-  acafe_criciuma: {
-    totalQuestions: 63,
-    alternatives: ["A", "B", "C", "D"],
-    subjects: [
-      { subject: "Biologia", count: 7 },
-      { subject: "Química", count: 7 },
-      { subject: "Física", count: 7 },
-      { subject: "Matemática", count: 7 },
-      { subject: "História", count: 7 },
-      { subject: "Geografia", count: 7 },
-      { subject: "Português", count: 14 },
-      { subject: "Língua Estrangeira", count: 7 },
     ],
   },
   enem: {

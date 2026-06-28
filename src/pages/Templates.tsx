@@ -188,7 +188,6 @@ const Templates = () => {
                       <SelectItem value="enem">ENEM</SelectItem>
                       <SelectItem value="ufsc">UFSC (Somatório)</SelectItem>
                       <SelectItem value="acafe">ACAFE</SelectItem>
-                      <SelectItem value="acafe_criciuma">ACAFE - Criciúma</SelectItem>
                       <SelectItem value="ufpr">UFPR</SelectItem>
                       <SelectItem value="custom">Personalizada</SelectItem>
                     </SelectContent>
