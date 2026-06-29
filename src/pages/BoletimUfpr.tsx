@@ -405,9 +405,42 @@ const BoletimUfpr = () => {
     : undefined;
 
   // ── PDF generation ────────────────────────────────────────────────────────
+
+  // Computa a média de acertos por disciplina a partir de um mapa de respostas
+  const computeClassAvg = (
+    answersMap: Record<string, StudentAnswer[]>,
+    corrList: Correction[]
+  ): Record<string, number> => {
+    if (Object.keys(answersMap).length === 0 || templateQuestions.length === 0) return {};
+    const agg: Record<string, { totalCorrect: number; students: number }> = {};
+    for (const [corrId, ans] of Object.entries(answersMap)) {
+      const c = corrList.find(x => x.id === corrId);
+      const m = studentsMetaMap[c?.student_name || ""];
+      const lang = c?.language_variant || m?.foreignLanguage || "Inglês";
+      const aMap = new Map(ans.map(a => [a.question_number, a]));
+      const activeQs = templateQuestions.filter(q => {
+        if (q.question_type === "discursive") return false;
+        if (!q.language_variant) return true;
+        return q.language_variant === lang;
+      });
+      const seen = new Set<string>();
+      for (const q of activeQs) {
+        const subj = q.subject || "—";
+        if (!agg[subj]) agg[subj] = { totalCorrect: 0, students: 0 };
+        if (!seen.has(subj)) { agg[subj].students++; seen.add(subj); }
+        if (aMap.get(q.question_number)?.is_correct) agg[subj].totalCorrect++;
+      }
+    }
+    const result: Record<string, number> = {};
+    for (const [subj, v] of Object.entries(agg))
+      result[subj] = v.students > 0 ? v.totalCorrect / v.students : 0;
+    return result;
+  };
+
   const buildOnePDF = async (
     doc: jsPDF, corr: Correction, answers: StudentAnswer[], isFirst: boolean,
-    flemingLogo: string | null, ufprLogo: string | null
+    flemingLogo: string | null, ufprLogo: string | null,
+    avgCount: Record<string, number>
   ) => {
     const meta = studentsMetaMap[corr.student_name];
     const lang = corr.language_variant || meta?.foreignLanguage || "Inglês";
@@ -449,7 +482,7 @@ const BoletimUfpr = () => {
       studentSede: meta?.campus ?? null,
       languageVariant: lang,
       bySubject,
-      classAvgCount,
+      classAvgCount: avgCount,
       discursiveEarned,
       discursiveMax,
       essayScore: corr.essay_score,
@@ -464,9 +497,17 @@ const BoletimUfpr = () => {
     setGeneratingPDF(true);
     try {
       const [flemingLogo, ufprLogo] = await loadUfprLogos();
+      // Garante média calculada mesmo se allAnswers ainda não carregou
+      let avg = classAvgCount;
+      if (Object.keys(avg).length === 0) {
+        const freshAnswers: Record<string, StudentAnswer[]> = {};
+        for (const c of corrections) {
+          freshAnswers[c.id] = await loadAnswersForCorrection(c.id);
+        }
+        avg = computeClassAvg(freshAnswers, corrections);
+      }
       const doc = new jsPDF();
-      const answers = studentAnswers;
-      await buildOnePDF(doc, correctionData.corr, answers, true, flemingLogo, ufprLogo);
+      await buildOnePDF(doc, correctionData.corr, studentAnswers, true, flemingLogo, ufprLogo, avg);
       doc.save(`boletim_UFPR_${correctionData.corr.student_name.replace(/\s+/g, "_")}.pdf`);
       toast({ title: "PDF gerado com sucesso!" });
     } catch {
@@ -478,10 +519,11 @@ const BoletimUfpr = () => {
 
   const generatePDFBase64 = async (
     corr: Correction, answers: StudentAnswer[],
-    flemingLogo: string | null, ufprLogo: string | null
+    flemingLogo: string | null, ufprLogo: string | null,
+    avgCount: Record<string, number>
   ): Promise<string> => {
     const doc = new jsPDF();
-    await buildOnePDF(doc, corr, answers, true, flemingLogo, ufprLogo);
+    await buildOnePDF(doc, corr, answers, true, flemingLogo, ufprLogo, avgCount);
     return doc.output("datauristring").split(",")[1];
   };
 
@@ -491,11 +533,16 @@ const BoletimUfpr = () => {
     setGeneratingAll(true);
     try {
       const [flemingLogo, ufprLogo] = await loadUfprLogos();
+      // Carrega todas as respostas primeiro para computar média corretamente
+      const allAnswersLocal: Record<string, StudentAnswer[]> = {};
+      for (const corr of targetCorrections) {
+        allAnswersLocal[corr.id] = await loadAnswersForCorrection(corr.id);
+      }
+      const avg = computeClassAvg(allAnswersLocal, targetCorrections);
       const doc = new jsPDF();
       for (let i = 0; i < targetCorrections.length; i++) {
         const corr = targetCorrections[i];
-        const answers = await loadAnswersForCorrection(corr.id);
-        await buildOnePDF(doc, corr, answers, i === 0, flemingLogo, ufprLogo);
+        await buildOnePDF(doc, corr, allAnswersLocal[corr.id], i === 0, flemingLogo, ufprLogo, avg);
       }
       doc.save(`boletins_UFPR_${selectedSede === "all" ? "todos" : selectedSede}.pdf`);
       toast({ title: `PDF gerado com ${targetCorrections.length} boletins!` });
@@ -516,7 +563,10 @@ const BoletimUfpr = () => {
     setSendingEmail(true);
     try {
       const [flemingLogo, ufprLogo] = await loadUfprLogos();
-      const pdfBase64 = await generatePDFBase64(correctionData.corr, studentAnswers, flemingLogo, ufprLogo);
+      const avg = Object.keys(classAvgCount).length > 0
+        ? classAvgCount
+        : computeClassAvg(allAnswers, corrections);
+      const pdfBase64 = await generatePDFBase64(correctionData.corr, studentAnswers, flemingLogo, ufprLogo, avg);
       const { data, error } = await supabase.functions.invoke("send-boletim-email", {
         body: { to: meta.email, studentName: correctionData.corr.student_name, templateName, pdfBase64 },
       });
@@ -535,12 +585,18 @@ const BoletimUfpr = () => {
     let sent = 0, failed = 0;
     try {
       const [flemingLogo, ufprLogo] = await loadUfprLogos();
+      // Carrega todas as respostas e computa média antes de enviar
+      const allAnswersLocal: Record<string, StudentAnswer[]> = {};
+      for (const corr of targetCorrections) {
+        allAnswersLocal[corr.id] = allAnswers[corr.id] || await loadAnswersForCorrection(corr.id);
+      }
+      const avg = computeClassAvg(allAnswersLocal, targetCorrections);
       for (const corr of targetCorrections) {
         const meta = studentsMetaMap[corr.student_name];
         if (!meta?.email) { failed++; continue; }
         try {
-          const answers = allAnswers[corr.id] || await loadAnswersForCorrection(corr.id);
-          const pdfBase64 = await generatePDFBase64(corr, answers, flemingLogo, ufprLogo);
+          const answers = allAnswersLocal[corr.id];
+          const pdfBase64 = await generatePDFBase64(corr, answers, flemingLogo, ufprLogo, avg);
           const { data, error } = await supabase.functions.invoke("send-boletim-email", {
             body: { to: meta.email, studentName: corr.student_name, templateName, pdfBase64 },
           });
