@@ -39,7 +39,7 @@ export default function AdminUsers() {
 
   // editar
   const [editUser, setEditUser] = useState<Usuario | null>(null);
-  const [editForm, setEditForm] = useState({ email: "", password: "" });
+  const [editForm, setEditForm] = useState({ email: "", password: "", sede_id: "", papel: "" });
   const [editSaving, setEditSaving] = useState(false);
 
   // excluir
@@ -114,7 +114,7 @@ export default function AdminUsers() {
     if (!editUser) return;
     setEditSaving(true);
     try {
-      await callManage({ action: "update", user_id: editUser.id, ...editForm });
+      await callManage({ action: "update", user_id: editUser.id, ...editForm, nome: editUser.nome });
       toast({ title: "Usuário atualizado" });
       setEditUser(null);
       loadData();
@@ -245,7 +245,13 @@ export default function AdminUsers() {
                   <div className="flex gap-1 justify-end">
                     <Button
                       variant="ghost" size="icon"
-                      onClick={() => { setEditUser(u); setEditForm({ email: u.email, password: "" }); }}
+                      onClick={() => {
+                        setEditUser(u);
+                        const primeiro = u.papeis?.[0];
+                        const sedeNome = primeiro?.sedes?.nome || "";
+                        const sedeEncontrada = sedes.find(s => s.nome === sedeNome);
+                        setEditForm({ email: u.email, password: "", sede_id: sedeEncontrada?.id || "", papel: primeiro?.papel || "" });
+                      }}
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -288,6 +294,24 @@ export default function AdminUsers() {
                 minLength={6}
                 placeholder="Mínimo 6 caracteres"
               />
+            </div>
+            <div className="space-y-1">
+              <Label>Sede</Label>
+              <Select value={editForm.sede_id} onValueChange={(v) => setEditForm({ ...editForm, sede_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione a sede" /></SelectTrigger>
+                <SelectContent>
+                  {sedes.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Papel</Label>
+              <Select value={editForm.papel} onValueChange={(v) => setEditForm({ ...editForm, papel: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione o papel" /></SelectTrigger>
+                <SelectContent>
+                  {PAPEIS.map((p) => <SelectItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button>

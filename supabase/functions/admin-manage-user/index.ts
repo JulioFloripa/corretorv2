@@ -26,25 +26,51 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json();
-    const { action, user_id, email, password } = body;
+    const { action, user_id, email, password, sede_id, papel, nome } = body;
 
     if (!user_id) return json({ error: "user_id é obrigatório" }, 400);
 
     if (action === "update") {
-      const updates: Record<string, string> = {};
-      if (email?.trim()) updates.email = email.trim();
-      if (password?.trim()) updates.password = password.trim();
+      const authUpdates: Record<string, string> = {};
+      if (email?.trim()) authUpdates.email = email.trim();
+      if (password?.trim()) authUpdates.password = password.trim();
 
-      if (Object.keys(updates).length === 0) {
-        return json({ error: "Informe email ou senha para atualizar" }, 400);
+      if (Object.keys(authUpdates).length > 0) {
+        const { error } = await supabase.auth.admin.updateUserById(user_id, authUpdates);
+        if (error) return json({ error: error.message }, 400);
+
+        if (authUpdates.email) {
+          await supabase.from("usuarios").update({ email: authUpdates.email }).eq("id", user_id);
+        }
       }
 
-      const { error } = await supabase.auth.admin.updateUserById(user_id, updates);
-      if (error) return json({ error: error.message }, 400);
+      // Atualizar sede e papel se informados
+      if (sede_id && papel) {
+        // Legado: substitui papel na tabela papeis
+        await supabase.from("papeis").delete().eq("usuario_id", user_id);
+        await supabase.from("papeis").insert({ usuario_id: user_id, sede_id, papel });
 
-      // Sincronizar email em public.usuarios se foi alterado
-      if (updates.email) {
-        await supabase.from("usuarios").update({ email: updates.email }).eq("id", user_id);
+        // Sincronizar user_profiles com campus_id para controle de acesso
+        const { data: sedeRow } = await supabase
+          .from("sedes")
+          .select("nome")
+          .eq("id", sede_id)
+          .maybeSingle();
+
+        if (sedeRow?.nome) {
+          const { data: campusRow } = await supabase
+            .from("campuses")
+            .select("id")
+            .eq("name", sedeRow.nome)
+            .maybeSingle();
+
+          if (campusRow?.id) {
+            await supabase.from("user_profiles").upsert(
+              { user_id, campus_id: campusRow.id, role: papel, display_name: nome || null },
+              { onConflict: "user_id" }
+            );
+          }
+        }
       }
 
       return json({ success: true });
