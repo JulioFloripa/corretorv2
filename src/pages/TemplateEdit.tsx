@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, RefreshCw, Pencil, Ban, XCircle, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, Pencil, Ban, XCircle, ArrowUpDown, ChevronUp, ChevronDown, Building2, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { recalculateByTemplate } from "@/lib/recalculate";
@@ -51,6 +51,11 @@ const TemplateEdit = () => {
   const [showReorderDialog, setShowReorderDialog] = useState(false);
   const [reorderBlocks, setReorderBlocks] = useState<{ key: string; label: string; count: number }[]>([]);
 
+  // Campus access
+  const [allCampuses, setAllCampuses] = useState<{ id: string; name: string }[]>([]);
+  const [grantedCampusIds, setGrantedCampusIds] = useState<Set<string>>(new Set());
+  const [campusSaving, setCampusSaving] = useState(false);
+
   // Subjects from the exam preset (e.g. UFPR: Biologia, Física, ...) — these
   // are available in the discipline dropdown without needing DB entries.
   const presetSubjectNames = useMemo(() => {
@@ -69,7 +74,30 @@ const TemplateEdit = () => {
   useEffect(() => {
     loadTemplate();
     loadDisciplines();
+    loadCampusAccess();
   }, [id]);
+
+  const loadCampusAccess = useCallback(async () => {
+    const [{ data: camps }, { data: granted }] = await Promise.all([
+      supabase.from("campuses").select("id, name").order("name"),
+      supabase.from("template_campus_access").select("campus_id").eq("template_id", id!),
+    ]);
+    setAllCampuses(camps || []);
+    setGrantedCampusIds(new Set((granted || []).map((r: any) => r.campus_id)));
+  }, [id]);
+
+  const toggleCampusAccess = async (campusId: string, grant: boolean) => {
+    setCampusSaving(true);
+    if (grant) {
+      await supabase.from("template_campus_access").upsert({ template_id: id!, campus_id: campusId });
+      setGrantedCampusIds(prev => new Set([...prev, campusId]));
+    } else {
+      await supabase.from("template_campus_access").delete()
+        .eq("template_id", id!).eq("campus_id", campusId);
+      setGrantedCampusIds(prev => { const s = new Set(prev); s.delete(campusId); return s; });
+    }
+    setCampusSaving(false);
+  };
 
   const loadDisciplines = async () => {
     const { data: discData } = await supabase.from("disciplines").select("*").order("name");
@@ -514,7 +542,46 @@ const TemplateEdit = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        {/* Acesso por sede */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              Acesso por Sede
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Coordenadores e Diretores das sedes marcadas poderão ver e editar os dados deste simulado.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {allCampuses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma sede cadastrada.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {allCampuses.map((campus) => {
+                  const granted = grantedCampusIds.has(campus.id);
+                  return (
+                    <button
+                      key={campus.id}
+                      disabled={campusSaving}
+                      onClick={() => toggleCampusAccess(campus.id, !granted)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        granted
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                      }`}
+                    >
+                      {campus.name}
+                      {granted && <X className="h-3 w-3" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Gabarito das Questões</CardTitle>

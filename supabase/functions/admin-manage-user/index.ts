@@ -56,6 +56,7 @@ Deno.serve(async (req) => {
 
       // Limpar dados relacionados (cascade via FK ou manualmente)
       await supabase.from("papeis").delete().eq("usuario_id", user_id);
+      await supabase.from("user_profiles").delete().eq("user_id", user_id);
       await supabase.from("usuarios").delete().eq("id", user_id);
 
       return json({ success: true });

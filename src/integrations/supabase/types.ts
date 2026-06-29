@@ -68,6 +68,39 @@ export type Database = {
         }
         Relationships: []
       }
+      template_campus_access: {
+        Row: {
+          template_id: string
+          campus_id: string
+          created_at: string
+        }
+        Insert: {
+          template_id: string
+          campus_id: string
+          created_at?: string
+        }
+        Update: {
+          template_id?: string
+          campus_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_campus_access_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_campus_access_campus_id_fkey"
+            columns: ["campus_id"]
+            isOneToOne: false
+            referencedRelation: "campuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           campus: string
