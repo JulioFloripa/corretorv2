@@ -23,7 +23,7 @@ interface Usuario {
   email: string;
   ativo: boolean;
   created_at: string;
-  papeis: { papel: string; sedes: { nome: string } | null }[];
+  papeis: { papel: string; sede_id: string | null; sedes: { nome: string } | null }[];
 }
 
 export default function AdminUsers() {
@@ -53,7 +53,7 @@ export default function AdminUsers() {
     const [{ data: u }, { data: s }] = await Promise.all([
       supabase
         .from("usuarios")
-        .select("id, nome, email, ativo, created_at, papeis(papel, sedes(nome))")
+        .select("id, nome, email, ativo, created_at, papeis(papel, sede_id, sedes(nome))")
         .order("created_at", { ascending: false }),
       supabase.from("sedes").select("id, nome").order("nome"),
     ]);
@@ -248,9 +248,7 @@ export default function AdminUsers() {
                       onClick={() => {
                         setEditUser(u);
                         const primeiro = u.papeis?.[0];
-                        const sedeNome = primeiro?.sedes?.nome || "";
-                        const sedeEncontrada = sedes.find(s => s.nome === sedeNome);
-                        setEditForm({ email: u.email, password: "", sede_id: sedeEncontrada?.id || "", papel: primeiro?.papel || "" });
+                        setEditForm({ email: u.email, password: "", sede_id: primeiro?.sede_id || "", papel: primeiro?.papel || "" });
                       }}
                     >
                       <Pencil className="w-4 h-4" />
