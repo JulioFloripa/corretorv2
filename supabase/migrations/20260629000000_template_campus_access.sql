@@ -1,8 +1,19 @@
--- Tabela de acesso de sedes a simulados (M:N entre templates e sedes)
--- Nota: este arquivo foi superado por 20260629100000_consolidate_sedes.sql
--- que recriou a tabela com sede_id → sedes em vez de campus_id → campuses.
--- Mantido apenas como histórico da intenção original.
+-- Função SECURITY DEFINER para verificar dono do template sem acionar RLS
+-- (evita recursão infinita: templates policy → tca policy → templates)
+CREATE OR REPLACE FUNCTION public.is_template_owner(_template_id uuid, _user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.templates
+    WHERE id = _template_id AND user_id = _user_id
+  )
+$$;
 
+-- Tabela de acesso de sedes a simulados (M:N entre templates e sedes)
 CREATE TABLE IF NOT EXISTS public.template_campus_access (
   template_id UUID NOT NULL REFERENCES public.templates(id) ON DELETE CASCADE,
   sede_id     UUID NOT NULL REFERENCES public.sedes(id)    ON DELETE CASCADE,
@@ -18,21 +29,16 @@ ALTER TABLE public.template_campus_access ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "tca_select" ON public.template_campus_access
   FOR SELECT TO authenticated USING (true);
 
+-- tca_manage usa is_template_owner (SECURITY DEFINER) para evitar recursão
 CREATE POLICY "tca_manage" ON public.template_campus_access
   FOR ALL TO authenticated
   USING (
     public.is_admin(auth.uid())
-    OR EXISTS (
-      SELECT 1 FROM public.templates t
-      WHERE t.id = template_id AND t.user_id = auth.uid()
-    )
+    OR public.is_template_owner(template_id, auth.uid())
   )
   WITH CHECK (
     public.is_admin(auth.uid())
-    OR EXISTS (
-      SELECT 1 FROM public.templates t
-      WHERE t.id = template_id AND t.user_id = auth.uid()
-    )
+    OR public.is_template_owner(template_id, auth.uid())
   );
 
 DROP POLICY IF EXISTS templates_visibility ON public.templates;
