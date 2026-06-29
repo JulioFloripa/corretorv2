@@ -91,7 +91,7 @@ interface StudentAnswer {
   question_number: number; student_answer: string | null;
   is_correct: boolean | null; points_earned: number | null;
 }
-interface StudentMeta { campus: string | null; email: string | null }
+interface StudentMeta { campus: string | null; email: string | null; foreignLanguage: string | null }
 
 const fmt = (n: number, d = 2) => n.toFixed(d).replace(".", ",");
 const pct = (s: number, m: number) => m > 0 ? `${((s / m) * 100).toFixed(1)}%` : "—";
@@ -220,11 +220,11 @@ const BoletimUfpr = () => {
     const names = [...new Set(corrections.map(c => c.student_name))];
     if (names.length === 0) return;
     const { data } = await supabase
-      .from("alunos").select("nome, campus, email").in("nome", names);
+      .from("alunos").select("nome, campus, email, foreign_language").in("nome", names);
     if (data) {
       const map: Record<string, StudentMeta> = {};
-      data.forEach((s: { nome: string; campus: string | null; email: string | null }) => {
-        map[s.nome] = { campus: s.campus, email: s.email };
+      data.forEach((s: { nome: string; campus: string | null; email: string | null; foreign_language: string | null }) => {
+        map[s.nome] = { campus: s.campus, email: s.email, foreignLanguage: s.foreign_language };
       });
       setStudentsMetaMap(map);
     }
@@ -409,11 +409,12 @@ const BoletimUfpr = () => {
     doc: jsPDF, corr: Correction, answers: StudentAnswer[], isFirst: boolean,
     flemingLogo: string | null, ufprLogo: string | null
   ) => {
-    const lang = corr.language_variant;
+    const meta = studentsMetaMap[corr.student_name];
+    const lang = corr.language_variant || meta?.foreignLanguage || "Inglês";
     const answerMap = new Map(answers.map(a => [a.question_number, a]));
 
     const activeQs = templateQuestions.filter(q =>
-      !q.language_variant || q.language_variant === (lang || "Inglês")
+      !q.language_variant || q.language_variant === lang
     );
     const objectiveQs = activeQs.filter(q => q.question_type !== "discursive");
     const discursiveQs = activeQs.filter(q => q.question_type === "discursive");
@@ -441,14 +442,12 @@ const BoletimUfpr = () => {
         correctAnswer: q.correct_answer || "—",
       }));
 
-    const meta = studentsMetaMap[corr.student_name];
-
     buildUfprPDF({
       doc, isFirst, templateName,
       studentName: corr.student_name,
       studentId: corr.student_id,
       studentSede: meta?.campus ?? null,
-      languageVariant: lang || "Inglês",
+      languageVariant: lang,
       bySubject,
       classAvgCount,
       discursiveEarned,
