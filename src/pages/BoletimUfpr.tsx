@@ -126,7 +126,6 @@ const BoletimUfpr = () => {
   const [generatingAll, setGeneratingAll] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingAllEmails, setSendingAllEmails] = useState(false);
-  const [savingLang, setSavingLang] = useState(false);
 
   // ── Auth & initial load ───────────────────────────────────────────────────
   useEffect(() => {
@@ -405,23 +404,6 @@ const BoletimUfpr = () => {
     ? studentsMetaMap[correctionData.corr.student_name]
     : undefined;
 
-  // ── Language selector ─────────────────────────────────────────────────────
-  const handleLanguageChange = async (newLang: string) => {
-    if (!selectedCorrection) return;
-    setSavingLang(true);
-    setCorrections(prev =>
-      prev.map(c => c.id === selectedCorrection ? { ...c, language_variant: newLang } : c)
-    );
-    const corr = corrections.find(c => c.id === selectedCorrection);
-    await Promise.all([
-      supabase.from("corrections").update({ language_variant: newLang }).eq("id", selectedCorrection),
-      corr?.student_id
-        ? supabase.from("alunos").update({ foreign_language: newLang }).eq("id", corr.student_id)
-        : Promise.resolve(),
-    ]);
-    setSavingLang(false);
-  };
-
   // ── PDF generation ────────────────────────────────────────────────────────
   const buildOnePDF = async (
     doc: jsPDF, corr: Correction, answers: StudentAnswer[], isFirst: boolean,
@@ -672,22 +654,6 @@ const BoletimUfpr = () => {
                 </SelectContent>
               </Select>
             </div>
-            {selectedCorrection && (
-              <div className="min-w-36">
-                <label className="text-xs text-muted-foreground mb-1 block">Língua Estrangeira</label>
-                <Select
-                  value={corrections.find(c => c.id === selectedCorrection)?.language_variant || "Inglês"}
-                  onValueChange={handleLanguageChange}
-                  disabled={savingLang}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Inglês">Inglês</SelectItem>
-                    <SelectItem value="Espanhol">Espanhol</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </CardContent>
         </Card>
 
