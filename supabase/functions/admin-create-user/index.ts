@@ -58,29 +58,6 @@ Deno.serve(async (req) => {
       return json({ error: `Usuário criado mas erro ao atribuir papel: ${papelErr.message}` }, 500);
     }
 
-    // Sincronizar user_profiles com campus_id para controle de acesso por sede
-    // Busca o campus cujo nome coincide com a sede selecionada
-    const { data: sedeRow } = await supabase
-      .from("sedes")
-      .select("nome")
-      .eq("id", sede_id)
-      .maybeSingle();
-
-    if (sedeRow?.nome) {
-      const { data: campusRow } = await supabase
-        .from("campuses")
-        .select("id")
-        .eq("name", sedeRow.nome)
-        .maybeSingle();
-
-      if (campusRow?.id) {
-        await supabase.from("user_profiles").upsert(
-          { user_id: newUserId, campus_id: campusRow.id, role: papel, display_name: nome },
-          { onConflict: "user_id" }
-        );
-      }
-    }
-
     return json({ success: true, user_id: newUserId });
   } catch (err: any) {
     return json({ error: err.message || "Erro interno" }, 500);

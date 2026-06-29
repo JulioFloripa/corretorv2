@@ -71,17 +71,17 @@ export type Database = {
       template_campus_access: {
         Row: {
           template_id: string
-          campus_id: string
+          sede_id: string
           created_at: string
         }
         Insert: {
           template_id: string
-          campus_id: string
+          sede_id: string
           created_at?: string
         }
         Update: {
           template_id?: string
-          campus_id?: string
+          sede_id?: string
           created_at?: string
         }
         Relationships: [
@@ -93,10 +93,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "template_campus_access_campus_id_fkey"
-            columns: ["campus_id"]
+            foreignKeyName: "template_campus_access_sede_id_fkey"
+            columns: ["sede_id"]
             isOneToOne: false
-            referencedRelation: "campuses"
+            referencedRelation: "sedes"
             referencedColumns: ["id"]
           },
         ]

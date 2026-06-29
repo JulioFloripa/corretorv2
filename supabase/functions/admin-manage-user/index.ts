@@ -50,27 +50,6 @@ Deno.serve(async (req) => {
         await supabase.from("papeis").delete().eq("usuario_id", user_id);
         await supabase.from("papeis").insert({ usuario_id: user_id, sede_id, papel });
 
-        // Sincronizar user_profiles com campus_id para controle de acesso
-        const { data: sedeRow } = await supabase
-          .from("sedes")
-          .select("nome")
-          .eq("id", sede_id)
-          .maybeSingle();
-
-        if (sedeRow?.nome) {
-          const { data: campusRow } = await supabase
-            .from("campuses")
-            .select("id")
-            .eq("name", sedeRow.nome)
-            .maybeSingle();
-
-          if (campusRow?.id) {
-            await supabase.from("user_profiles").upsert(
-              { user_id, campus_id: campusRow.id, role: papel, display_name: nome || null },
-              { onConflict: "user_id" }
-            );
-          }
-        }
       }
 
       return json({ success: true });

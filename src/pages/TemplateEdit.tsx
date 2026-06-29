@@ -51,9 +51,9 @@ const TemplateEdit = () => {
   const [showReorderDialog, setShowReorderDialog] = useState(false);
   const [reorderBlocks, setReorderBlocks] = useState<{ key: string; label: string; count: number }[]>([]);
 
-  // Campus access
-  const [allCampuses, setAllCampuses] = useState<{ id: string; name: string }[]>([]);
-  const [grantedCampusIds, setGrantedCampusIds] = useState<Set<string>>(new Set());
+  // Sede access
+  const [allSedes, setAllSedes] = useState<{ id: string; nome: string }[]>([]);
+  const [grantedSedeIds, setGrantedSedeIds] = useState<Set<string>>(new Set());
   const [campusSaving, setCampusSaving] = useState(false);
 
   // Subjects from the exam preset (e.g. UFPR: Biologia, Física, ...) — these
@@ -78,23 +78,23 @@ const TemplateEdit = () => {
   }, [id]);
 
   const loadCampusAccess = useCallback(async () => {
-    const [{ data: camps }, { data: granted }] = await Promise.all([
-      supabase.from("campuses").select("id, name").order("name"),
-      supabase.from("template_campus_access").select("campus_id").eq("template_id", id!),
+    const [{ data: sedes }, { data: granted }] = await Promise.all([
+      supabase.from("sedes").select("id, nome").order("nome"),
+      supabase.from("template_campus_access").select("sede_id").eq("template_id", id!),
     ]);
-    setAllCampuses(camps || []);
-    setGrantedCampusIds(new Set((granted || []).map((r: any) => r.campus_id)));
+    setAllSedes((sedes as any) || []);
+    setGrantedSedeIds(new Set((granted || []).map((r: any) => r.sede_id)));
   }, [id]);
 
-  const toggleCampusAccess = async (campusId: string, grant: boolean) => {
+  const toggleCampusAccess = async (sedeId: string, grant: boolean) => {
     setCampusSaving(true);
     if (grant) {
-      await supabase.from("template_campus_access").upsert({ template_id: id!, campus_id: campusId });
-      setGrantedCampusIds(prev => new Set([...prev, campusId]));
+      await supabase.from("template_campus_access").upsert({ template_id: id!, sede_id: sedeId } as any);
+      setGrantedSedeIds(prev => new Set([...prev, sedeId]));
     } else {
-      await supabase.from("template_campus_access").delete()
-        .eq("template_id", id!).eq("campus_id", campusId);
-      setGrantedCampusIds(prev => { const s = new Set(prev); s.delete(campusId); return s; });
+      await (supabase.from("template_campus_access") as any).delete()
+        .eq("template_id", id!).eq("sede_id", sedeId);
+      setGrantedSedeIds(prev => { const s = new Set(prev); s.delete(sedeId); return s; });
     }
     setCampusSaving(false);
   };
@@ -555,24 +555,24 @@ const TemplateEdit = () => {
             </p>
           </CardHeader>
           <CardContent>
-            {allCampuses.length === 0 ? (
+            {allSedes.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma sede cadastrada.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {allCampuses.map((campus) => {
-                  const granted = grantedCampusIds.has(campus.id);
+                {allSedes.map((sede) => {
+                  const granted = grantedSedeIds.has(sede.id);
                   return (
                     <button
-                      key={campus.id}
+                      key={sede.id}
                       disabled={campusSaving}
-                      onClick={() => toggleCampusAccess(campus.id, !granted)}
+                      onClick={() => toggleCampusAccess(sede.id, !granted)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
                         granted
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background text-muted-foreground border-border hover:border-primary/50"
                       }`}
                     >
-                      {campus.name}
+                      {sede.nome}
                       {granted && <X className="h-3 w-3" />}
                     </button>
                   );
