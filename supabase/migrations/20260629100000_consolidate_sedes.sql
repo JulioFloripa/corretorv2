@@ -37,14 +37,14 @@ CREATE POLICY "tca_manage" ON public.template_campus_access
     public.is_admin(auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.templates t
-      WHERE t.id = template_id AND t.created_by = auth.uid()
+      WHERE t.id = template_id AND t.user_id = auth.uid()
     )
   )
   WITH CHECK (
     public.is_admin(auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.templates t
-      WHERE t.id = template_id AND t.created_by = auth.uid()
+      WHERE t.id = template_id AND t.user_id = auth.uid()
     )
   );
 
@@ -62,8 +62,7 @@ DROP POLICY IF EXISTS templates_visibility ON public.templates;
 CREATE POLICY templates_visibility ON public.templates
   FOR SELECT
   USING (
-    visibility = 'shared'
-    OR created_by = auth.uid()
+    user_id = auth.uid()
     OR public.is_admin(auth.uid())
     OR EXISTS (
       SELECT 1
@@ -80,6 +79,6 @@ DROP POLICY IF EXISTS templates_campus_write ON public.templates;
 CREATE POLICY templates_update ON public.templates
   FOR UPDATE TO authenticated
   USING (
-    created_by = auth.uid()
+    user_id = auth.uid()
     OR public.is_admin(auth.uid())
   );

@@ -509,7 +509,6 @@ export type Database = {
         Row: {
           campus_id: string | null
           created_at: string | null
-          created_by: string | null
           description: string | null
           exam_type: string
           id: string
@@ -517,12 +516,10 @@ export type Database = {
           total_questions: number
           updated_at: string | null
           user_id: string
-          visibility: string
         }
         Insert: {
           campus_id?: string | null
           created_at?: string | null
-          created_by?: string | null
           description?: string | null
           exam_type: string
           id?: string
@@ -530,12 +527,10 @@ export type Database = {
           total_questions: number
           updated_at?: string | null
           user_id: string
-          visibility?: string
         }
         Update: {
           campus_id?: string | null
           created_at?: string | null
-          created_by?: string | null
           description?: string | null
           exam_type?: string
           id?: string
@@ -543,7 +538,6 @@ export type Database = {
           total_questions?: number
           updated_at?: string | null
           user_id?: string
-          visibility?: string
         }
         Relationships: [
           {
