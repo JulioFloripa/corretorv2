@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Clock, Trash2, RefreshCw, UserPlus, ChevronDown } from "lucide-react";
+import { ArrowLeft, Clock, Trash2, RefreshCw, UserPlus, ChevronDown, FilePen } from "lucide-react";
 import { examTypeLabel } from "@/lib/exam-presets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -222,13 +222,22 @@ const History = () => {
                             : "-"}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteCorrection(c.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/corrections/${c.id}/edit`)}
+                            >
+                              <FilePen className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteCorrection(c.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
