@@ -33,7 +33,7 @@ import {
 import { calculateSummationScore, calculateOpenNumericScore } from "@/lib/ufsc-scoring";
 import OmrStepHeader, { OmrEmptyState } from "@/components/omr/OmrStepHeader";
 
-type StudentStatus = "approved" | "problem" | "discarded" | "missing";
+type StudentStatus = "approved" | "partial" | "problem" | "discarded" | "missing";
 
 interface EnrolledStudent {
   id: string;
@@ -50,6 +50,7 @@ interface ScanSubmission {
   manual_corrections: any;
   success: boolean | null;
   read_errors: string[] | null;
+  qr_data?: any;
   student_name?: string | null;
 }
 
@@ -58,6 +59,7 @@ interface StudentRow {
   scan: ScanSubmission | null;
   status: StudentStatus;
   statusLabel: string;
+  daysReceived?: number;
 }
 
 const OmrDone = () => {
@@ -66,6 +68,7 @@ const OmrDone = () => {
   const { toast } = useToast();
 
   const [templateName, setTemplateName] = useState("");
+  const [examType, setExamType] = useState("");
   const [loading, setLoading] = useState(true);
   const [enrolledStudents, setEnrolledStudents] = useState<EnrolledStudent[]>([]);
   const [submissions, setSubmissions] = useState<ScanSubmission[]>([]);
@@ -91,18 +94,19 @@ const OmrDone = () => {
     setLoading(true);
 
     const [{ data: tpl }, { data: enrollments }, { data: subs }] = await Promise.all([
-      supabase.from("templates").select("name").eq("id", templateId).maybeSingle(),
+      supabase.from("templates").select("name, exam_type").eq("id", templateId).maybeSingle(),
       supabase
         .from("template_students")
         .select("student_id")
         .eq("template_id", templateId),
       supabase
         .from("scan_submissions")
-        .select("id, reviewed, discarded, manual_corrections, success, read_errors, student_id")
+        .select("id, reviewed, discarded, manual_corrections, success, read_errors, student_id, qr_data")
         .eq("template_id", templateId),
     ]);
 
     setTemplateName(tpl?.name || "");
+    setExamType((tpl as any)?.exam_type || "");
 
     const studentIds = ((enrollments as any[]) || []).map((e: any) => e.student_id).filter(Boolean);
 
@@ -121,11 +125,53 @@ const OmrDone = () => {
   };
 
   // ──── Computar status de cada aluno ────
+  const isUfsc = examType.toLowerCase() === "ufsc";
+
   const studentRows = useMemo<StudentRow[]>(() => {
+    if (isUfsc) {
+      // UFSC: cada aluno pode ter até 2 scans (um por dia)
+      const scansByStudent = new Map<string, ScanSubmission[]>();
+      for (const sub of submissions) {
+        if (sub.student_id && !sub.discarded) {
+          if (!scansByStudent.has(sub.student_id)) scansByStudent.set(sub.student_id, []);
+          scansByStudent.get(sub.student_id)!.push(sub);
+        }
+      }
+
+      return enrolledStudents.map((student) => {
+        const scans = scansByStudent.get(student.id) || [];
+        const days = new Set(scans.map(s => s.qr_data?.day ?? s.qr_data?.d ?? 1));
+        const daysReceived = days.size;
+
+        const hasProblems = scans.some(s =>
+          !s.reviewed && (s.success === false || (s.read_errors?.length || 0) > 0)
+        );
+
+        let status: StudentStatus;
+        let statusLabel: string;
+
+        if (scans.length === 0) {
+          status = "missing";
+          statusLabel = "Sem gabarito";
+        } else if (hasProblems) {
+          status = "problem";
+          statusLabel = `Erro de leitura (${daysReceived} dia(s) recebido(s))`;
+        } else if (daysReceived < 2) {
+          status = "partial";
+          statusLabel = `Parcial — ${daysReceived}/2 dia(s)`;
+        } else {
+          status = "approved";
+          statusLabel = "Completo — 2/2 dias";
+        }
+
+        return { student, scan: scans[0] || null, status, statusLabel, daysReceived };
+      });
+    }
+
+    // Comportamento padrão (não-UFSC)
     const subsByStudent = new Map<string, ScanSubmission>();
     for (const sub of submissions) {
       if (sub.student_id && !sub.discarded) {
-        // Se houver múltiplos scans para o mesmo aluno, priorizar o revisado
         const existing = subsByStudent.get(sub.student_id);
         if (!existing || (sub.reviewed && !existing.reviewed)) {
           subsByStudent.set(sub.student_id, sub);
@@ -171,7 +217,7 @@ const OmrDone = () => {
 
       return { student, scan, status, statusLabel };
     });
-  }, [enrolledStudents, submissions]);
+  }, [enrolledStudents, submissions, isUfsc]);
 
   // ──── Scans sem aluno (órfãos) ────
   const orphanScans = useMemo(() => {
@@ -182,13 +228,14 @@ const OmrDone = () => {
   // ──── Contadores ────
   const counts = useMemo(() => {
     const approved = studentRows.filter((r) => r.status === "approved").length;
+    const partial = studentRows.filter((r) => r.status === "partial").length;
     const problems = studentRows.filter((r) => r.status === "problem").length;
     const missing = studentRows.filter((r) => r.status === "missing").length;
     const discarded = submissions.filter((s) => s.discarded).length;
     const total = enrolledStudents.length;
     const coverage = total > 0 ? Math.round(((total - missing) / total) * 100) : 0;
 
-    return { approved, problems, missing, discarded, total, coverage, orphans: orphanScans.length };
+    return { approved, partial, problems, missing, discarded, total, coverage, orphans: orphanScans.length };
   }, [studentRows, submissions, enrolledStudents, orphanScans]);
 
   // ──── Filtro ────
@@ -285,7 +332,7 @@ const OmrDone = () => {
         supabase.from("template_questions").select("*").eq("template_id", templateId).order("question_number"),
         supabase
           .from("scan_submissions")
-          .select("id, student_id, detected_answers, reviewed, success, read_errors, language")
+          .select("id, student_id, detected_answers, reviewed, success, read_errors, language, qr_data")
           .eq("template_id", templateId)
           .eq("discarded", false),
       ]);
@@ -331,125 +378,253 @@ const OmrDone = () => {
 
       let created = 0, skipped = 0, updated = 0;
 
-      for (const sub of approvedSubs) {
-        if (!sub.student_id) { skipped++; continue; }
-        const student = studMap.get(sub.student_id);
-        if (!student) { skipped++; continue; }
-
-        const { data: existing } = await supabase
-          .from("corrections")
-          .select("id, essay_score")
-          .eq("template_id", templateId)
-          .eq("student_name", student.nome)
-          .maybeSingle();
-
-        // Idioma: 1) explícito no scan, 2) auto-detectado, 3) fallback do aluno
-        const lang: string | null = hasLangVariants
-          ? (sub.language || autoDetectLang(sub.detected_answers) || student.foreign_language || "Inglês")
-          : null;
-        const filteredQs = (questions as any[]).filter((q) => !q.language_variant || q.language_variant === lang);
-
-        // Compute scale factor for cancelada redistribution
-        const sumNormal = filteredQs.filter(q => !q.status).reduce((s: number, q: any) => s + (Number(q.points) || 0), 0);
-        const sumCancelada = filteredQs.filter(q => q.status === "cancelada").reduce((s: number, q: any) => s + (Number(q.points) || 0), 0);
-        const scaleFactor = sumNormal > 0 ? (sumNormal + sumCancelada) / sumNormal : 1;
-
-        let totalScore = 0, maxScore = 0;
-        const answersToInsert: any[] = [];
-
-        for (const q of filteredQs) {
-          const detected = sub.detected_answers?.[`q${q.question_number}`] ?? null;
-          const rawPoints = Number(q.points) || 1;
-          let isCorrect = false, pointsEarned = 0;
-
-          if (q.status === "cancelada") {
-            answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: false, points_earned: 0 });
-            continue;
-          }
-
-          if (q.status === "anulada") {
-            totalScore += rawPoints;
-            maxScore += rawPoints;
-            answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: true, points_earned: rawPoints });
-            continue;
-          }
-
-          const effectivePoints = Math.round(rawPoints * scaleFactor * 100) / 100;
-
-          if (q.question_type === "summation") {
-            const studentSum = parseInt(detected || "0") || 0;
-            const correctSum = parseInt(q.correct_answer || "0") || 0;
-            const r = calculateSummationScore(studentSum, correctSum, q.num_propositions || 5, effectivePoints);
-            pointsEarned = r.score; isCorrect = pointsEarned > 0; maxScore += r.maxScore;
-          } else if (q.question_type === "open_numeric") {
-            const studentNum = detected != null ? parseInt(detected) : null;
-            const correctNum = parseInt(q.correct_answer || "0") || 0;
-            const r = calculateOpenNumericScore(studentNum, correctNum, effectivePoints);
-            pointsEarned = r.score; isCorrect = r.isCorrect; maxScore += r.maxScore;
-          } else if (q.question_type === "discursive") {
-            maxScore += effectivePoints;
-          } else {
-            isCorrect = (detected || "").toUpperCase() === q.correct_answer.toUpperCase();
-            pointsEarned = isCorrect ? effectivePoints : 0;
-            maxScore += effectivePoints;
-          }
-
-          totalScore += pointsEarned;
-          answersToInsert.push({
-            question_number: q.question_number,
-            student_answer: detected,
-            correct_answer: q.correct_answer,
-            is_correct: isCorrect,
-            points_earned: pointsEarned,
-          });
+      if (isUfsc) {
+        // ── UFSC: mescla dois dias antes de calcular ─────────────────────────
+        // Agrupa todos os scans aprovados por aluno
+        const ufscScansByStudent = new Map<string, any[]>();
+        for (const sub of approvedSubs) {
+          if (!sub.student_id) { skipped++; continue; }
+          if (!ufscScansByStudent.has(sub.student_id)) ufscScansByStudent.set(sub.student_id, []);
+          ufscScansByStudent.get(sub.student_id)!.push(sub);
         }
 
-        // Integrar nota de redação ao total (se existir)
-        const existingEssay = existing?.essay_score ?? null;
-        if (existingEssay != null) {
-          totalScore += existingEssay;
-        }
+        for (const [studentId, studentScans] of ufscScansByStudent) {
+          const student = studMap.get(studentId);
+          if (!student) { skipped++; continue; }
 
-        let correctionId: string;
+          // Mescla detected_answers de todos os dias: Q1-40 do dia 1 + Q41-80 do dia 2
+          const mergedAnswers: Record<string, string | null> = {};
+          const daysPresent = new Set<number>();
+          for (const scan of studentScans) {
+            const day = scan.qr_data?.day ?? scan.qr_data?.d ?? 1;
+            daysPresent.add(day);
+            for (const [k, v] of Object.entries(scan.detected_answers || {})) {
+              if (v != null && v !== "") mergedAnswers[k] = v as string | null;
+            }
+          }
 
-        if (existing) {
-          correctionId = existing.id;
-          await supabase.from("student_answers").delete().eq("correction_id", correctionId);
-          await supabase.from("corrections").update({
-            total_score: totalScore,
-            max_score: maxScore,
-            percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
-            status: "completed",
-            student_id: student.matricula,
-            ...(lang ? { language_variant: lang } : {}),
-          }).eq("id", correctionId);
-          updated++;
-        } else {
-          const { data: corr, error: corrErr } = await supabase
+          // Candidato com apenas 1 dia: correction fica com status "parcial"
+          // (questões do dia ausente recebem detected=null → pointsEarned=0)
+          const isPartial = daysPresent.size < 2;
+
+          const { data: existing } = await supabase
             .from("corrections")
-            .insert({
-              user_id: user.id,
-              template_id: templateId,
-              student_name: student.nome,
+            .select("id, essay_score")
+            .eq("template_id", templateId)
+            .eq("student_name", student.nome)
+            .maybeSingle();
+
+          // UFSC: discursivas são corrigidas manualmente em DiscursiveScores
+          const scorableQs = (questions as any[]).filter(q => q.question_type !== "discursive");
+
+          let totalScore = 0, maxScore = 0;
+          const answersToInsert: any[] = [];
+
+          for (const q of scorableQs) {
+            const detected = mergedAnswers[`q${q.question_number}`] ?? null;
+            const rawPoints = Number(q.points) || 1;
+            let isCorrect = false, pointsEarned = 0;
+
+            if (q.status === "cancelada") {
+              answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: false, points_earned: 0 });
+              continue;
+            }
+            if (q.status === "anulada") {
+              totalScore += rawPoints; maxScore += rawPoints;
+              answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: true, points_earned: rawPoints });
+              continue;
+            }
+
+            if (q.question_type === "summation") {
+              const studentSum = parseInt(detected || "0") || 0;
+              const correctSum = parseInt(q.correct_answer || "0") || 0;
+              const r = calculateSummationScore(studentSum, correctSum, q.num_propositions || 5, rawPoints);
+              pointsEarned = r.score; isCorrect = pointsEarned > 0; maxScore += r.maxScore;
+            } else if (q.question_type === "open_numeric") {
+              const studentNum = detected != null ? parseInt(detected) : null;
+              const correctNum = parseInt(q.correct_answer || "0") || 0;
+              const r = calculateOpenNumericScore(studentNum, correctNum, rawPoints);
+              pointsEarned = r.score; isCorrect = r.isCorrect; maxScore += r.maxScore;
+            } else {
+              isCorrect = (detected || "").toUpperCase() === q.correct_answer.toUpperCase();
+              pointsEarned = isCorrect ? rawPoints : 0;
+              maxScore += rawPoints;
+            }
+
+            totalScore += pointsEarned;
+            answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: isCorrect, points_earned: pointsEarned });
+          }
+
+          // Integrar notas discursivas/redação já existentes
+          if (existing?.essay_score != null) totalScore += existing.essay_score;
+
+          const correctionStatus = isPartial ? "parcial" : "completed";
+          let correctionId: string;
+
+          if (existing) {
+            correctionId = existing.id;
+            // UFSC: NÃO apaga student_answers — usa upsert para preservar o outro dia
+            await supabase.from("corrections").update({
+              total_score: totalScore,
+              max_score: maxScore,
+              percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
+              status: correctionStatus,
               student_id: student.matricula,
+            }).eq("id", correctionId);
+            updated++;
+          } else {
+            const { data: corr, error: corrErr } = await supabase
+              .from("corrections")
+              .insert({
+                user_id: user.id,
+                template_id: templateId,
+                student_name: student.nome,
+                student_id: student.matricula,
+                total_score: totalScore,
+                max_score: maxScore,
+                percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
+                status: correctionStatus,
+              })
+              .select("id")
+              .single();
+            if (corrErr || !corr) { skipped++; continue; }
+            correctionId = corr.id;
+            created++;
+          }
+
+          // Upsert idempotente: dia 1 sobrescreve Q1-40, dia 2 sobrescreve Q41-80
+          // Nunca apaga as respostas do outro dia
+          await supabase.from("student_answers").upsert(
+            answersToInsert.map(a => ({ ...a, correction_id: correctionId })),
+            { onConflict: "correction_id,question_number" }
+          );
+
+          for (const scan of studentScans) {
+            await supabase.from("scan_submissions").update({ correction_id: correctionId }).eq("id", scan.id);
+          }
+        }
+      } else {
+        // ── Comportamento padrão (não-UFSC) ──────────────────────────────────
+        for (const sub of approvedSubs) {
+          if (!sub.student_id) { skipped++; continue; }
+          const student = studMap.get(sub.student_id);
+          if (!student) { skipped++; continue; }
+
+          const { data: existing } = await supabase
+            .from("corrections")
+            .select("id, essay_score")
+            .eq("template_id", templateId)
+            .eq("student_name", student.nome)
+            .maybeSingle();
+
+          // Idioma: 1) explícito no scan, 2) auto-detectado, 3) fallback do aluno
+          const lang: string | null = hasLangVariants
+            ? (sub.language || autoDetectLang(sub.detected_answers) || student.foreign_language || "Inglês")
+            : null;
+          const filteredQs = (questions as any[]).filter((q) => !q.language_variant || q.language_variant === lang);
+
+          // Compute scale factor for cancelada redistribution
+          const sumNormal = filteredQs.filter(q => !q.status).reduce((s: number, q: any) => s + (Number(q.points) || 0), 0);
+          const sumCancelada = filteredQs.filter(q => q.status === "cancelada").reduce((s: number, q: any) => s + (Number(q.points) || 0), 0);
+          const scaleFactor = sumNormal > 0 ? (sumNormal + sumCancelada) / sumNormal : 1;
+
+          let totalScore = 0, maxScore = 0;
+          const answersToInsert: any[] = [];
+
+          for (const q of filteredQs) {
+            const detected = sub.detected_answers?.[`q${q.question_number}`] ?? null;
+            const rawPoints = Number(q.points) || 1;
+            let isCorrect = false, pointsEarned = 0;
+
+            if (q.status === "cancelada") {
+              answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: false, points_earned: 0 });
+              continue;
+            }
+
+            if (q.status === "anulada") {
+              totalScore += rawPoints;
+              maxScore += rawPoints;
+              answersToInsert.push({ question_number: q.question_number, student_answer: detected, correct_answer: q.correct_answer, is_correct: true, points_earned: rawPoints });
+              continue;
+            }
+
+            const effectivePoints = Math.round(rawPoints * scaleFactor * 100) / 100;
+
+            if (q.question_type === "summation") {
+              const studentSum = parseInt(detected || "0") || 0;
+              const correctSum = parseInt(q.correct_answer || "0") || 0;
+              const r = calculateSummationScore(studentSum, correctSum, q.num_propositions || 5, effectivePoints);
+              pointsEarned = r.score; isCorrect = pointsEarned > 0; maxScore += r.maxScore;
+            } else if (q.question_type === "open_numeric") {
+              const studentNum = detected != null ? parseInt(detected) : null;
+              const correctNum = parseInt(q.correct_answer || "0") || 0;
+              const r = calculateOpenNumericScore(studentNum, correctNum, effectivePoints);
+              pointsEarned = r.score; isCorrect = r.isCorrect; maxScore += r.maxScore;
+            } else if (q.question_type === "discursive") {
+              maxScore += effectivePoints;
+            } else {
+              isCorrect = (detected || "").toUpperCase() === q.correct_answer.toUpperCase();
+              pointsEarned = isCorrect ? effectivePoints : 0;
+              maxScore += effectivePoints;
+            }
+
+            totalScore += pointsEarned;
+            answersToInsert.push({
+              question_number: q.question_number,
+              student_answer: detected,
+              correct_answer: q.correct_answer,
+              is_correct: isCorrect,
+              points_earned: pointsEarned,
+            });
+          }
+
+          // Integrar nota de redação ao total (se existir)
+          const existingEssay = existing?.essay_score ?? null;
+          if (existingEssay != null) {
+            totalScore += existingEssay;
+          }
+
+          let correctionId: string;
+
+          if (existing) {
+            correctionId = existing.id;
+            await supabase.from("student_answers").delete().eq("correction_id", correctionId);
+            await supabase.from("corrections").update({
               total_score: totalScore,
               max_score: maxScore,
               percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
               status: "completed",
+              student_id: student.matricula,
               ...(lang ? { language_variant: lang } : {}),
-            })
-            .select("id")
-            .single();
+            }).eq("id", correctionId);
+            updated++;
+          } else {
+            const { data: corr, error: corrErr } = await supabase
+              .from("corrections")
+              .insert({
+                user_id: user.id,
+                template_id: templateId,
+                student_name: student.nome,
+                student_id: student.matricula,
+                total_score: totalScore,
+                max_score: maxScore,
+                percentage: maxScore > 0 ? (totalScore / maxScore) * 100 : 0,
+                status: "completed",
+                ...(lang ? { language_variant: lang } : {}),
+              })
+              .select("id")
+              .single();
 
-          if (corrErr || !corr) { skipped++; continue; }
-          correctionId = corr.id;
-          created++;
+            if (corrErr || !corr) { skipped++; continue; }
+            correctionId = corr.id;
+            created++;
+          }
+
+          await supabase.from("student_answers").insert(
+            answersToInsert.map((a) => ({ ...a, correction_id: correctionId }))
+          );
+          await supabase.from("scan_submissions").update({ correction_id: correctionId }).eq("id", sub.id);
         }
-
-        await supabase.from("student_answers").insert(
-          answersToInsert.map((a) => ({ ...a, correction_id: correctionId }))
-        );
-        await supabase.from("scan_submissions").update({ correction_id: correctionId }).eq("id", sub.id);
       }
 
       setCalcResult({ created, skipped, updated });
@@ -464,6 +639,7 @@ const OmrDone = () => {
   const statusIcon = (status: StudentStatus) => {
     switch (status) {
       case "approved": return <UserCheck className="h-4 w-4 text-emerald-600" />;
+      case "partial": return <CircleAlert className="h-4 w-4 text-blue-500" />;
       case "problem": return <CircleAlert className="h-4 w-4 text-amber-500" />;
       case "discarded": return <CircleX className="h-4 w-4 text-muted-foreground" />;
       case "missing": return <CircleDashed className="h-4 w-4 text-destructive" />;
@@ -473,11 +649,13 @@ const OmrDone = () => {
   const statusBadge = (status: StudentStatus, label: string) => {
     const variants: Record<StudentStatus, "default" | "secondary" | "destructive" | "outline"> = {
       approved: "default",
+      partial: "secondary",
       problem: "secondary",
       discarded: "outline",
       missing: "destructive",
     };
-    return <Badge variant={variants[status]} className="text-xs">{label}</Badge>;
+    const extra = status === "partial" ? " text-blue-600 dark:text-blue-400" : "";
+    return <Badge variant={variants[status]} className={`text-xs${extra}`}>{label}</Badge>;
   };
 
   if (!templateId) {
@@ -538,10 +716,33 @@ const OmrDone = () => {
                   <Stat label="Aprovados" value={counts.approved} icon={<UserCheck className="h-4 w-4 text-emerald-600" />} accent="primary" />
                   <Stat label="Com problemas" value={counts.problems} icon={<CircleAlert className="h-4 w-4 text-amber-500" />} accent={counts.problems > 0 ? "destructive" : undefined} />
                   <Stat label="Sem gabarito" value={counts.missing} icon={<CircleDashed className="h-4 w-4 text-destructive" />} accent={counts.missing > 0 ? "destructive" : undefined} />
-                  <Stat label="Descartados" value={counts.discarded} icon={<CircleX className="h-4 w-4 text-muted-foreground" />} />
+                  {isUfsc
+                    ? <Stat label="Dia parcial" value={counts.partial} icon={<CircleAlert className="h-4 w-4 text-blue-500" />} />
+                    : <Stat label="Descartados" value={counts.discarded} icon={<CircleX className="h-4 w-4 text-muted-foreground" />} />
+                  }
                 </div>
 
                 {/* Alertas */}
+                {isUfsc && counts.partial > 0 && (
+                  <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-400">
+                      <CircleAlert className="h-4 w-4" />
+                      {counts.partial} aluno(s) com apenas 1 dia de prova recebido
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Faltaram em um dos dias. As questões do dia ausente receberão 0 pontos. Se você ainda tem scans para enviar, faça o upload antes de calcular as notas. Reprocessar após receber o 2º dia atualiza a nota sem apagar o 1º.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button onClick={() => navigate(`/omr/upload/${templateId}`)} variant="outline" size="sm">
+                        Enviar mais scans
+                      </Button>
+                      <Button onClick={() => setStatusFilter("partial")} variant="ghost" size="sm">
+                        Ver alunos parciais
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {counts.problems > 0 && (
                   <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-destructive">
@@ -617,6 +818,7 @@ const OmrDone = () => {
                     <SelectContent>
                       <SelectItem value="all">Todos ({counts.total})</SelectItem>
                       <SelectItem value="approved">Aprovados ({counts.approved})</SelectItem>
+                      {isUfsc && <SelectItem value="partial">Parcial 1 dia ({counts.partial})</SelectItem>}
                       <SelectItem value="problem">Com problemas ({counts.problems})</SelectItem>
                       <SelectItem value="missing">Sem gabarito ({counts.missing})</SelectItem>
                       <SelectItem value="discarded">Descartados ({counts.discarded})</SelectItem>
@@ -632,6 +834,7 @@ const OmrDone = () => {
                         <TableHead>Nome</TableHead>
                         <TableHead>Matrícula</TableHead>
                         <TableHead>Sede</TableHead>
+                        {isUfsc && <TableHead className="text-center">Dias</TableHead>}
                         <TableHead className="text-right">Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -646,12 +849,26 @@ const OmrDone = () => {
                         filteredRows.map((row) => (
                           <TableRow
                             key={row.student.id}
-                            className={row.status === "missing" ? "bg-destructive/5" : row.status === "problem" ? "bg-amber-500/5" : ""}
+                            className={
+                              row.status === "missing" ? "bg-destructive/5" :
+                              row.status === "problem" ? "bg-amber-500/5" :
+                              row.status === "partial" ? "bg-blue-500/5" : ""
+                            }
                           >
                             <TableCell>{statusIcon(row.status)}</TableCell>
                             <TableCell className="font-medium">{row.student.nome}</TableCell>
                             <TableCell className="text-muted-foreground">{row.student.matricula || "-"}</TableCell>
                             <TableCell className="text-muted-foreground">{row.student.campus || "-"}</TableCell>
+                            {isUfsc && (
+                              <TableCell className="text-center">
+                                <Badge
+                                  variant={row.daysReceived === 2 ? "default" : row.daysReceived === 1 ? "secondary" : "outline"}
+                                  className="text-xs tabular-nums"
+                                >
+                                  {row.daysReceived ?? 0}/2
+                                </Badge>
+                              </TableCell>
+                            )}
                             <TableCell className="text-right">{statusBadge(row.status, row.statusLabel)}</TableCell>
                           </TableRow>
                         ))
@@ -684,11 +901,19 @@ const OmrDone = () => {
                   </AlertDescription>
                 </Alert>
 
-                <Button onClick={calculateGrades} disabled={calculating || counts.approved === 0} size="lg" className="w-full">
+                <Button
+                  onClick={calculateGrades}
+                  disabled={calculating || (counts.approved + counts.partial) === 0}
+                  size="lg"
+                  className="w-full"
+                >
                   {calculating ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Calculando...</>
                   ) : (
-                    <><Calculator className="h-4 w-4 mr-2" />Calcular notas de {counts.approved} aluno(s)</>
+                    <><Calculator className="h-4 w-4 mr-2" />
+                    Calcular notas de {counts.approved + counts.partial} aluno(s)
+                    {isUfsc && counts.partial > 0 && ` (${counts.partial} parcial)`}
+                    </>
                   )}
                 </Button>
 
