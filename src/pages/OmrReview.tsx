@@ -50,6 +50,7 @@ const OmrReview = () => {
   const { toast } = useToast();
 
   const [templateName, setTemplateName] = useState("");
+  const [examType, setExamType] = useState("");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -81,7 +82,7 @@ const OmrReview = () => {
       if (!session) return navigate("/auth");
 
       const [{ data: tpl }, { data: subs }, { data: qs }, { data: studs }] = await Promise.all([
-        supabase.from("templates").select("nome").eq("id", templateId).maybeSingle(),
+        supabase.from("templates").select("nome, exam_type").eq("id", templateId).maybeSingle(),
         supabase
           .from("scan_submissions")
           .select("id, scan_image_path, qr_data, detected_answers, read_errors, student_id, answer_sheet_id, manual_corrections, success, language")
@@ -97,7 +98,8 @@ const OmrReview = () => {
         supabase.from("alunos").select("id, nome, matricula").order("nome"),
       ]);
 
-      setTemplateName(tpl?.name || "");
+      setTemplateName((tpl as any)?.nome || (tpl as any)?.name || "");
+      setExamType((tpl as any)?.exam_type || "");
       const subsData = (subs as any) || [];
       setSubmissions(subsData);
       const qsList = ((qs as any) || []) as Question[];
@@ -154,25 +156,37 @@ const OmrReview = () => {
   // internamente usamos também "q{n}" para consistência.
   const qKey = (n: number) => `q${n}`;
 
+  // Para UFSC: intervalo de questões desta folha (derivado do QR ou padrão dia 1)
+  const UFSC_QS_PER_DAY = 40;
+  const dayRange = useMemo(() => {
+    if (examType !== "ufsc") return null;
+    const qs = current?.qr_data?.question_start ?? 1;
+    return { start: qs, end: qs + UFSC_QS_PER_DAY - 1 };
+  }, [examType, current]);
+
   // Status por questão
-  const getStatus = useCallback((q: Question): "ok" | "empty" | "error" => {
+  const getStatus = useCallback((q: Question): "ok" | "empty" | "error" | "other_day" => {
+    // Questões discursivas e de outro dia não estão na folha de respostas OMR
+    if (q.question_type === "discursive") return "other_day";
+    if (dayRange && (q.question_number < dayRange.start || q.question_number > dayRange.end)) return "other_day";
     const v = answers[qKey(q.question_number)];
     if (!v || v === "" || v === "null") return "empty";
     // Se o erro do OMR menciona essa questão, marca como erro até ser corrigida
     const errMatch = (current?.read_errors || []).some((e) => new RegExp(`Q0?${q.question_number}\\b`).test(e));
     if (errMatch && !current?.manual_corrections?.[qKey(q.question_number)]) return "error";
     return "ok";
-  }, [answers, current]);
+  }, [answers, current, dayRange]);
 
   const counts = useMemo(() => {
-    let ok = 0, empty = 0, error = 0;
+    let ok = 0, empty = 0, error = 0, otherDay = 0;
     questions.forEach((q) => {
       const s = getStatus(q);
       if (s === "ok") ok++;
       else if (s === "empty") empty++;
-      else error++;
+      else if (s === "error") error++;
+      else otherDay++;
     });
-    return { ok, empty, error };
+    return { ok, empty, error, otherDay };
   }, [questions, getStatus]);
 
   const openEdit = (q: Question) => {
@@ -447,7 +461,17 @@ const OmrReview = () => {
             {counts.error > 0 && (
               <Badge variant="destructive" className="gap-1"><X className="h-3 w-3" />{counts.error} erros</Badge>
             )}
-            {current.read_errors.length > 0 && (
+            {counts.otherDay > 0 && (
+              <Badge variant="secondary" className="gap-1 text-muted-foreground">
+                {counts.otherDay} outro dia
+              </Badge>
+            )}
+            {dayRange && (
+              <Badge variant="outline" className="gap-1 ml-auto">
+                {current?.qr_data?.day ? `Dia ${current.qr_data.day}` : "Dia 1"} · Q{dayRange.start}–Q{dayRange.end}
+              </Badge>
+            )}
+            {!dayRange && current.read_errors.length > 0 && (
               <span className="text-xs text-muted-foreground ml-auto truncate" title={current.read_errors.join(" • ")}>
                 {current.read_errors.length} aviso(s) do OMR
               </span>
@@ -475,26 +499,47 @@ const OmrReview = () => {
                 const status = getStatus(q);
                 const value = answers[qKey(q.question_number)] || "";
                 const isManual = current.manual_corrections?.[qKey(q.question_number)] !== undefined;
+                const isOtherDay = status === "other_day";
                 return (
                   <button
                     key={q.question_number}
-                    onClick={() => openEdit(q)}
-                    className={`text-left border rounded-md p-2 hover:border-primary transition-colors ${
-                      status === "error" ? "border-destructive bg-destructive/5" :
-                      status === "empty" ? "border-warning bg-warning/10" :
-                      "border-border"
+                    onClick={() => !isOtherDay && openEdit(q)}
+                    disabled={isOtherDay}
+                    title={
+                      isOtherDay && q.question_type === "discursive"
+                        ? "Questão discursiva — corrigida manualmente em Notas Discursivas"
+                        : isOtherDay
+                        ? "Questão de outro dia — não presente nesta folha"
+                        : undefined
+                    }
+                    className={`text-left border rounded-md p-2 transition-colors ${
+                      isOtherDay
+                        ? "border-border/40 bg-muted/30 opacity-50 cursor-default"
+                        : status === "error"
+                        ? "border-destructive bg-destructive/5 hover:border-primary"
+                        : status === "empty"
+                        ? "border-warning bg-warning/10 hover:border-primary"
+                        : "border-border hover:border-primary"
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-semibold">Q{String(q.question_number).padStart(2, "0")}</span>
+                      <span className={`font-semibold ${isOtherDay ? "text-muted-foreground" : ""}`}>
+                        Q{String(q.question_number).padStart(2, "0")}
+                      </span>
                       {status === "ok" && <CheckCircle2 className="h-3 w-3 text-primary" />}
                       {status === "empty" && <AlertTriangle className="h-3 w-3 text-warning" />}
                       {status === "error" && <X className="h-3 w-3 text-destructive" />}
                     </div>
-                    <div className="font-mono text-sm font-bold truncate">
-                      {value || <span className="text-muted-foreground italic font-sans font-normal text-xs">vazia</span>}
+                    <div className={`font-mono text-sm font-bold truncate ${isOtherDay ? "text-muted-foreground" : ""}`}>
+                      {isOtherDay ? (
+                        <span className="text-muted-foreground italic font-sans font-normal text-xs">
+                          {q.question_type === "discursive" ? "discursiva" : "outro dia"}
+                        </span>
+                      ) : value || (
+                        <span className="text-muted-foreground italic font-sans font-normal text-xs">vazia</span>
+                      )}
                     </div>
-                    {isManual && <span className="text-[10px] text-primary">corrigida</span>}
+                    {isManual && !isOtherDay && <span className="text-[10px] text-primary">corrigida</span>}
                   </button>
                 );
               })}
