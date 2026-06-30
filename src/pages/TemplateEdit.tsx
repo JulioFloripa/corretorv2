@@ -687,9 +687,14 @@ const TemplateEdit = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {(Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][]).map(([key, label]) => (
-                                <SelectItem key={key} value={key}>{label}</SelectItem>
-                              ))}
+                              {(Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][])
+                                .filter(([key]) =>
+                                  template?.exam_type !== "ufsc" ||
+                                  ["summation", "open_numeric", "discursive"].includes(key)
+                                )
+                                .map(([key, label]) => (
+                                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         </td>
