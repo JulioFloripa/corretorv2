@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, LayoutGrid, List } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import FlemingLogo from "@/components/FlemingLogo";
 import { Textarea } from "@/components/ui/textarea";
 import { EXAM_PRESETS, generatePresetQuestions, examTypeLabel } from "@/lib/exam-presets";
@@ -31,6 +33,7 @@ const Templates = () => {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [selectedExamType, setSelectedExamType] = useState("");
   const [totalQuestions, setTotalQuestions] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
 
   useEffect(() => {
     checkAuthAndLoad();
@@ -142,13 +145,34 @@ const Templates = () => {
               <h1 className="text-xl font-bold">Gerenciar Gabaritos</h1>
             </div>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Gabarito
+          <div className="flex items-center gap-2">
+            <div className="flex border rounded-md">
+              <Button
+                variant={viewMode === "cards" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-r-none px-2"
+                onClick={() => setViewMode("cards")}
+                title="Visualização em cards"
+              >
+                <LayoutGrid className="h-4 w-4" />
               </Button>
-            </DialogTrigger>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-l-none px-2"
+                onClick={() => setViewMode("list")}
+                title="Visualização em lista"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Gabarito
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Criar Novo Gabarito</DialogTitle>
@@ -216,7 +240,8 @@ const Templates = () => {
                 <Button type="submit" className="w-full">Criar Gabarito</Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
       </header>
 
@@ -233,7 +258,7 @@ const Templates = () => {
               Criar Primeiro Gabarito
             </Button>
           </div>
-        ) : (
+        ) : viewMode === "cards" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {templates.map((template) => (
               <Card key={template.id} className="hover:shadow-lg transition-shadow">
@@ -273,6 +298,59 @@ const Templates = () => {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead className="w-[120px]">Tipo</TableHead>
+                  <TableHead className="w-[90px] text-center">Questões</TableHead>
+                  <TableHead className="w-[110px] text-right">Criado em</TableHead>
+                  <TableHead className="w-[110px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {templates.map((template) => (
+                  <TableRow key={template.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => navigate(`/templates/${template.id}`)}>
+                    <TableCell className="font-medium">{template.name}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm max-w-[240px] truncate">
+                      {template.description || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs">
+                        {examTypeLabel(template.exam_type)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">{template.total_questions}</TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">
+                      {new Date(template.created_at).toLocaleDateString("pt-BR")}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/templates/${template.id}`)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteTemplate(template.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </main>
