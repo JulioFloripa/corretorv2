@@ -31,6 +31,7 @@ import { Progress } from "@/components/ui/progress";
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
 import { calculateSummationScore, calculateOpenNumericScore } from "@/lib/ufsc-scoring";
+import { normalizeCampus } from "@/lib/student-upsert";
 
 interface StudentConflict {
   matricula: string;
@@ -53,6 +54,7 @@ const Correct = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [sedeNames, setSedeNames] = useState<string[]>([]);
   
   // Estados do dialog de progresso
   const [showProgressDialog, setShowProgressDialog] = useState(false);
@@ -76,6 +78,9 @@ const Correct = () => {
   useEffect(() => {
     checkAuth();
     loadTemplates();
+    supabase.from("sedes").select("nome").order("nome").then(({ data }) => {
+      setSedeNames((data || []).map((r: { nome: string }) => r.nome));
+    });
   }, []);
 
   const checkAuth = async () => {
@@ -215,7 +220,7 @@ const Correct = () => {
       const emailMatricula = rawEmail.toLowerCase().endsWith("@flemingeducacao.com.br")
         ? rawEmail.split("@")[0] : "";
       const matricula = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || emailMatricula || "").toString().trim();
-      const campus = (row.Sede || row.sede || row.SEDE || "").toString().trim() || null;
+      const campus = normalizeCampus((row.Sede || row.sede || row.SEDE || "").toString(), sedeNames);
       const language = (row["Idioma escolhido"] || row["idioma escolhido"] || row["Lingua estrangeira"] || "").toString().trim() || null;
 
       if (!matricula || !nome || seen.has(matricula)) continue;
@@ -437,7 +442,7 @@ const Correct = () => {
                 ? rawEmail.split("@")[0]
                 : "";
               const studentId = (row.ID || row.id || row.matricula || row.Matricula || row.MATRICULA || emailMatricula || "").toString().trim();
-              const studentCampus = (row.Sede || row.sede || row.SEDE || "").toString().trim() || null;
+              const studentCampus = normalizeCampus((row.Sede || row.sede || row.SEDE || "").toString(), sedeNames);
               const studentLanguage = (row["Idioma escolhido"] || row["idioma escolhido"] || row["Lingua estrangeira"] || row["lingua estrangeira"] || "").toString().trim() || null;
               
               if (!studentName || studentName.length > 255) return;

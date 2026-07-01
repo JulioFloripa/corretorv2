@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Retorna a lista de nomes de sedes cadastradas em `campuses`, ordenadas.
- * Enquanto carrega, `campuses` é um array vazio e `loading` é true.
+ * Retorna a lista de nomes de sedes cadastradas em `sedes`, ordenadas.
+ * Fonte única de verdade — a tabela `campuses` foi removida.
  */
 export function useCampuses() {
   const [campuses, setCampuses] = useState<string[]>([]);
@@ -11,11 +11,11 @@ export function useCampuses() {
 
   useEffect(() => {
     supabase
-      .from("campuses")
-      .select("name")
-      .order("name")
+      .from("sedes")
+      .select("nome")
+      .order("nome")
       .then(({ data }) => {
-        setCampuses((data || []).map((r: { name: string }) => r.name));
+        setCampuses((data || []).map((r: { nome: string }) => r.nome));
         setLoading(false);
       });
   }, []);

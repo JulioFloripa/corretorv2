@@ -11,6 +11,21 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Normaliza um campus vindo de texto livre (planilha) contra a lista canônica de sedes.
+ * Comparação case-insensitive: "FLORIANÓPOLIS", "florianópolis" e "Florianópolis"
+ * todas casam com a sede correta. Se não encontrar correspondência → null.
+ */
+export function normalizeCampus(
+  raw: string | null | undefined,
+  sedeNames: string[],
+): string | null {
+  if (!raw || !raw.trim()) return null;
+  const normalized = raw.trim().toLowerCase();
+  const match = sedeNames.find((s) => s.toLowerCase() === normalized);
+  return match ?? null;
+}
+
 export interface IncomingStudentData {
   nome: string;
   matricula: string | null;
