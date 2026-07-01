@@ -25,6 +25,7 @@ import {
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import {
   Sidebar,
   SidebarContent,
@@ -119,8 +120,17 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const pathname = location.pathname;
+  const isAdmin = useIsAdmin();
 
   const currentTemplateId = extractOmrTemplateId(pathname);
+
+  // Filtra itens que requerem admin
+  const visibleGroups = groups.map((g) => ({
+    ...g,
+    items: g.items.filter((item) =>
+      item.url === "/admin/usuarios" ? isAdmin === true : true
+    ),
+  }));
 
   return (
     <Sidebar collapsible="icon">
@@ -132,7 +142,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {groups.map((group) => (
+        {visibleGroups.map((group) => (
           <SidebarGroup key={group.label}>
             {!collapsed && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
             <SidebarGroupContent>

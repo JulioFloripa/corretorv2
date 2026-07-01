@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Loader2, Pencil, Trash2 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { UserPlus, Loader2, Pencil, Trash2, ShieldAlert } from "lucide-react";
 
 const SUPABASE_URL = "https://supabase.flemingfloripa.com.br";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgwNzQ1OTU3LCJleHAiOjIwOTYxMDU5NTd9.ry3A5SbXnPH0SgIKLRNRv0Rf9IH3GCV17xRZ0D1TwEc";
@@ -22,12 +25,16 @@ interface Usuario {
   nome: string;
   email: string;
   ativo: boolean;
+  is_admin: boolean;
   created_at: string;
   papeis: { papel: string; sede_id: string | null; sedes: { nome: string } | null }[];
 }
 
 export default function AdminUsers() {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
+
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,11 +42,11 @@ export default function AdminUsers() {
   // criar
   const [openCreate, setOpenCreate] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ nome: "", email: "", password: "", sede_id: "", papel: "" });
+  const [form, setForm] = useState({ nome: "", email: "", password: "", sede_id: "", papel: "", is_admin: false });
 
   // editar
   const [editUser, setEditUser] = useState<Usuario | null>(null);
-  const [editForm, setEditForm] = useState({ email: "", password: "", sede_id: "", papel: "" });
+  const [editForm, setEditForm] = useState({ email: "", password: "", sede_id: "", papel: "", is_admin: false });
   const [editSaving, setEditSaving] = useState(false);
 
   // excluir
@@ -48,12 +55,17 @@ export default function AdminUsers() {
 
   useEffect(() => { loadData(); }, []);
 
+  // Redirecionar se não for admin
+  useEffect(() => {
+    if (isAdmin === false) navigate("/dashboard");
+  }, [isAdmin, navigate]);
+
   async function loadData() {
     setLoading(true);
     const [{ data: u }, { data: s }] = await Promise.all([
       supabase
         .from("usuarios")
-        .select("id, nome, email, ativo, created_at, papeis(papel, sede_id, sedes(nome))")
+        .select("id, nome, email, ativo, is_admin, created_at, papeis(papel, sede_id, sedes(nome))")
         .order("created_at", { ascending: false }),
       supabase.from("sedes").select("id, nome").order("nome"),
     ]);
@@ -99,7 +111,7 @@ export default function AdminUsers() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Erro ${res.status}`);
       toast({ title: "Usuário criado com sucesso" });
-      setForm({ nome: "", email: "", password: "", sede_id: "", papel: "" });
+      setForm({ nome: "", email: "", password: "", sede_id: "", papel: "", is_admin: false });
       setOpenCreate(false);
       loadData();
     } catch (err: any) {
@@ -114,7 +126,7 @@ export default function AdminUsers() {
     if (!editUser) return;
     setEditSaving(true);
     try {
-      await callManage({ action: "update", user_id: editUser.id, ...editForm, nome: editUser.nome });
+      await callManage({ action: "update", user_id: editUser.id, ...editForm, nome: editUser.nome, is_admin: editForm.is_admin });
       toast({ title: "Usuário atualizado" });
       setEditUser(null);
       loadData();
@@ -138,6 +150,14 @@ export default function AdminUsers() {
     } finally {
       setDeleting(false);
     }
+  }
+
+  if (isAdmin === null) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
@@ -185,6 +205,20 @@ export default function AdminUsers() {
                     {PAPEIS.map((p) => <SelectItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center gap-2 rounded-md border p-3 bg-muted/30">
+                <Checkbox
+                  id="is_admin_create"
+                  checked={form.is_admin}
+                  onCheckedChange={(v) => setForm({ ...form, is_admin: !!v })}
+                />
+                <div className="flex flex-col gap-0.5">
+                  <Label htmlFor="is_admin_create" className="flex items-center gap-1 cursor-pointer">
+                    <ShieldAlert className="w-3.5 h-3.5 text-orange-500" />
+                    Administrador do sistema
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Acesso total a todos os dados e usuários</p>
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={saving}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -234,9 +268,16 @@ export default function AdminUsers() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={u.ativo ? "default" : "destructive"}>
-                    {u.ativo ? "Ativo" : "Inativo"}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={u.ativo ? "default" : "destructive"}>
+                      {u.ativo ? "Ativo" : "Inativo"}
+                    </Badge>
+                    {u.is_admin && (
+                      <Badge variant="outline" className="text-orange-600 border-orange-400 gap-1">
+                        <ShieldAlert className="w-3 h-3" /> Admin
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {new Date(u.created_at).toLocaleDateString("pt-BR")}
@@ -248,7 +289,7 @@ export default function AdminUsers() {
                       onClick={() => {
                         setEditUser(u);
                         const primeiro = u.papeis?.[0];
-                        setEditForm({ email: u.email, password: "", sede_id: primeiro?.sede_id || "", papel: primeiro?.papel || "" });
+                        setEditForm({ email: u.email, password: "", sede_id: primeiro?.sede_id || "", papel: primeiro?.papel || "", is_admin: u.is_admin });
                       }}
                     >
                       <Pencil className="w-4 h-4" />
@@ -310,6 +351,17 @@ export default function AdminUsers() {
                   {PAPEIS.map((p) => <SelectItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center gap-2 rounded-md border p-3 bg-muted/30">
+              <Checkbox
+                id="is_admin_edit"
+                checked={editForm.is_admin}
+                onCheckedChange={(v) => setEditForm({ ...editForm, is_admin: !!v })}
+              />
+              <Label htmlFor="is_admin_edit" className="flex items-center gap-1 cursor-pointer">
+                <ShieldAlert className="w-3.5 h-3.5 text-orange-500" />
+                Administrador do sistema
+              </Label>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button>

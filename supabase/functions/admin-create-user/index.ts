@@ -28,8 +28,18 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Verificar que o chamador é admin
+    const { data: callerData } = await supabase
+      .from("usuarios")
+      .select("is_admin")
+      .eq("id", callerId)
+      .single();
+    if (!callerData?.is_admin) {
+      return json({ error: "Acesso negado. Apenas administradores podem criar usuários." }, 403);
+    }
+
     const body = await req.json();
-    const { nome, email, password, sede_id, papel } = body;
+    const { nome, email, password, sede_id, papel, is_admin: newIsAdmin = false } = body;
 
     if (!nome || !email || !password || !sede_id || !papel) {
       return json({ error: "nome, email, password, sede_id e papel são obrigatórios" }, 400);
@@ -49,13 +59,18 @@ Deno.serve(async (req) => {
 
     const newUserId = created.user.id;
 
-    // Atribuir papel na sede (legado)
+    // Atribuir papel na sede
     const { error: papelErr } = await supabase
       .from("papeis")
       .insert({ usuario_id: newUserId, sede_id, papel });
 
     if (papelErr) {
       return json({ error: `Usuário criado mas erro ao atribuir papel: ${papelErr.message}` }, 500);
+    }
+
+    // Marcar como admin se solicitado (somente outro admin pode fazer isso)
+    if (newIsAdmin) {
+      await supabase.from("usuarios").update({ is_admin: true }).eq("id", newUserId);
     }
 
     return json({ success: true, user_id: newUserId });

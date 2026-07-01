@@ -25,8 +25,19 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Verificar que o chamador é admin
+    const { data: callerData } = await supabase
+      .from("usuarios")
+      .select("is_admin")
+      .eq("id", payload.sub)
+      .single();
+    if (!callerData?.is_admin) {
+      return json({ error: "Acesso negado. Apenas administradores podem gerenciar usuários." }, 403);
+    }
+
     const body = await req.json();
-    const { action, user_id, email, password, sede_id, papel, nome } = body;
+    const { action, user_id, email, password, sede_id, papel, nome, is_admin: newIsAdmin } = body;
 
     if (!user_id) return json({ error: "user_id é obrigatório" }, 400);
 
@@ -46,10 +57,13 @@ Deno.serve(async (req) => {
 
       // Atualizar sede e papel se informados
       if (sede_id && papel) {
-        // Legado: substitui papel na tabela papeis
         await supabase.from("papeis").delete().eq("usuario_id", user_id);
         await supabase.from("papeis").insert({ usuario_id: user_id, sede_id, papel });
+      }
 
+      // Atualizar flag de admin se informado
+      if (typeof newIsAdmin === "boolean") {
+        await supabase.from("usuarios").update({ is_admin: newIsAdmin }).eq("id", user_id);
       }
 
       return json({ success: true });
