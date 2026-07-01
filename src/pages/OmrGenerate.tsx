@@ -23,10 +23,12 @@ const OmrGenerate = () => {
   const [existingSheets, setExistingSheets] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [enemDay, setEnemDay] = useState<"1" | "2" | "both">("both");
+  const [ufscDay, setUfscDay] = useState<"1" | "2" | "both">("both");
   const [result, setResult] = useState<{ zip_url: string; expires_at: string; sheet_count: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isEnem = examType === "enem";
+  const isEnem = examType.toLowerCase() === "enem";
+  const isUfsc = examType.toLowerCase() === "ufsc";
 
   useEffect(() => {
     if (!templateId) return;
@@ -49,19 +51,19 @@ const OmrGenerate = () => {
     setError(null);
     setResult(null);
     try {
-      if (isEnem && enemDay === "both") {
-        // Gera dia 1 e dia 2 separados; retorna o primeiro link (ambos no mesmo ZIP não é suportado)
+      const isBothDays = (isEnem && enemDay === "both") || (isUfsc && ufscDay === "both");
+      if (isBothDays) {
+        const prefix = isUfsc ? "ufsc" : "enem";
         const [res1, res2] = await Promise.all([
           generateBatch(templateId, undefined, 1),
           generateBatch(templateId, undefined, 2),
         ]);
-        // Abre os dois downloads automaticamente
-        const a1 = document.createElement("a"); a1.href = res1.zip_url; a1.download = "gabaritos_enem_dia1.zip"; a1.click();
-        const a2 = document.createElement("a"); a2.href = res2.zip_url; a2.download = "gabaritos_enem_dia2.zip"; a2.click();
+        const a1 = document.createElement("a"); a1.href = res1.zip_url; a1.download = `gabaritos_${prefix}_dia1.zip`; a1.click();
+        const a2 = document.createElement("a"); a2.href = res2.zip_url; a2.download = `gabaritos_${prefix}_dia2.zip`; a2.click();
         setResult({ zip_url: res1.zip_url, expires_at: res1.expires_at, sheet_count: (res1.sheet_count || 0) + (res2.sheet_count || 0) });
-        toast({ title: "Gabaritos ENEM gerados!", description: "Dois ZIPs baixados: Dia 1 e Dia 2." });
+        toast({ title: `Gabaritos ${isUfsc ? "UFSC" : "ENEM"} gerados!`, description: "Dois ZIPs baixados: Dia 1 e Dia 2." });
       } else {
-        const day = isEnem ? Number(enemDay) : undefined;
+        const day = isEnem ? Number(enemDay) : isUfsc ? Number(ufscDay) : undefined;
         const res = await generateBatch(templateId, undefined, day);
         setResult({ zip_url: res.zip_url, expires_at: res.expires_at, sheet_count: res.sheet_count });
         toast({ title: "Gabaritos gerados!", description: `${res.sheet_count} folhas prontas para download.` });
@@ -150,6 +152,31 @@ const OmrGenerate = () => {
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="2" id="enem-dia2" />
                     <Label htmlFor="enem-dia2">Dia 2 (Q91–180)</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
+
+            {isUfsc && (
+              <div className="border rounded-lg p-4 space-y-2 bg-muted/30">
+                <Label className="text-sm font-semibold">Dia da UFSC a gerar</Label>
+                <p className="text-xs text-muted-foreground">Cada folha contém 40 questões de somatório. As discursivas são corrigidas separadamente.</p>
+                <RadioGroup
+                  value={ufscDay}
+                  onValueChange={(v) => setUfscDay(v as "1" | "2" | "both")}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="both" id="ufsc-both" />
+                    <Label htmlFor="ufsc-both">Ambos os dias (2 ZIPs)</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="1" id="ufsc-dia1" />
+                    <Label htmlFor="ufsc-dia1">Dia 1 (Q1–40)</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="2" id="ufsc-dia2" />
+                    <Label htmlFor="ufsc-dia2">Dia 2 (Q41–80)</Label>
                   </div>
                 </RadioGroup>
               </div>
